@@ -163,7 +163,7 @@ void main()
 		/* Accumulate Blinn-Phong shading for each light. */
 		for (int i = 0; i < NumLights; ++i)
 		{
-			gl_FragColor.rgb += shadeBlinnPhong(diffuse, materialParams2.rgb, materialParams1.y,
+			gl_FragColor.rgb += shadeBlinnPhong(diffuse, materialParams1.gba, materialParams2.a,
 				position, normal, LightPositions[i], LightColors[i], LightAttenuations[i]);
 		}
 	}

@@ -68,10 +68,9 @@ public abstract class SceneController implements MouseListener, MouseMotionListe
 		 * control (e.g. game-style input), make a new subclass!
 		 */
 
-		//globalController = new DefaultSceneController();
+		globalController = new DefaultSceneController();
 		//globalController = new ManyLightsSceneController();
-		globalController = new SSAOSceneController();
-	}
+		}
 	
 	/*
 	 * Default constructor initializes the OpenGL window. 
@@ -211,83 +210,7 @@ public abstract class SceneController implements MouseListener, MouseMotionListe
 			mRenderer.setRenderWireframes(!mRenderer.getRenderWireframes());
 			requiresRender();
 		}
-		else if (c == 'b')
-		{
-			mRenderer.setBloom(!mRenderer.getBloom());
-			requiresRender();
-		}
-		else if (c == 'v')
-		{
-			mRenderer.setBloomVariance(Math.max(0.1f, mRenderer.getBloomVariance() - 0.1f));
-			System.out.println("Bloom Variance: " + mRenderer.getBloomVariance());
-			requiresRender();
-		}
-		else if (c == 'V')
-		{
-			mRenderer.setBloomVariance(mRenderer.getBloomVariance() + 0.1f);
-			System.out.println("Bloom Variance: " + mRenderer.getBloomVariance());
-			requiresRender();
-		}
-		else if (c == 'c')
-		{
-			mRenderer.setBloomThreshold(Math.max(0.0f, mRenderer.getBloomThreshold() - 0.025f));
-			System.out.println("Bloom Threshold: " + mRenderer.getBloomThreshold());
-			requiresRender();
-		}
-		else if (c == 'C')
-		{
-			mRenderer.setBloomThreshold(mRenderer.getBloomThreshold() + 0.025f);
-			System.out.println("Bloom Threshold: " + mRenderer.getBloomThreshold());
-			requiresRender();
-		}
-		else if (c == 'x')
-		{
-			mRenderer.setBloomWidth(Math.max(0, mRenderer.getBloomWidth() - 1));
-			System.out.println("Bloom Width: " + mRenderer.getBloomWidth());
-			requiresRender();
-		}
-		else if (c == 'X')
-		{
-			mRenderer.setBloomWidth(mRenderer.getBloomWidth() + 1);
-			System.out.println("Bloom Width: " + mRenderer.getBloomWidth());
-			requiresRender();
-		}
-		else if (c == 's')
-		{
-			mRenderer.setSSAOEnabled(!mRenderer.getSSAOEnabled());
-			System.out.println("SSAO enabled: " + mRenderer.getSSAOEnabled());
-			requiresRender();
-		}
-		else if (c == 'r')
-		{
-			mRenderer.setSSAORadius(Math.max(mRenderer.getSSAORadius() - 0.01f, 0.01f));
-			System.out.println("SSAO radius: " + mRenderer.getSSAORadius());
-			requiresRender();
-		}
-		else if (c == 'R')
-		{
-			mRenderer.setSSAORadius(mRenderer.getSSAORadius() + 0.01f);
-			System.out.println("SSAO radius: " + mRenderer.getSSAORadius());
-			requiresRender();
-		}
-		else if (c == 'e')
-		{
-			int min = 5;
-			int max = mRenderer.getMaxSSAORays();
-			
-			mRenderer.createNewSSAORays(Math.max(min, Math.min(max, mRenderer.getSSAORayCount() - 5)));
-			System.out.println("SSAO rays: " + mRenderer.getSSAORayCount());
-			requiresRender();
-		}
-		else if (c == 'E')
-		{
-			int min = 5;
-			int max = mRenderer.getMaxSSAORays();
-			
-			mRenderer.createNewSSAORays(Math.max(min, Math.min(max, mRenderer.getSSAORayCount() + 5)));
-			System.out.println("SSAO rays: " + mRenderer.getSSAORayCount());
-			requiresRender();
-		}
+	
 	}
 
 	/**

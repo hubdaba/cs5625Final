@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 
 import javax.imageio.ImageIO;
 import javax.media.opengl.GL2;
@@ -363,6 +364,8 @@ public class Texture2D extends Texture
 		gl.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 		bind(gl, 0);
 		
+		
+		
 		/* Compute texture coordinates and render. */
 		float smax = (isRectTexture() ? mWidth : 1.0f);
 		float tmax = (isRectTexture() ? mHeight: 1.0f);
@@ -370,6 +373,17 @@ public class Texture2D extends Texture
 		Util.drawFullscreenQuad(gl, smax, tmax);
 		
 		/* Unbind, restore state, check for errors, and done. */
+		unbind(gl);
+		gl.glBindTexture(GL2.GL_TEXTURE_2D, getHandle());
+		Buffer image = ByteBuffer.allocate((int) (100000));
+		gl.glGetTexImage(GL2.GL_TEXTURE_2D, 0, GL2.GL_RGBA, GL2.GL_UNSIGNED_BYTE, image);
+		((ByteBuffer)image).position(0);
+		for (int i = 0; i < 100000; i++) {
+			byte x = ((ByteBuffer)image).get();
+			if (x != 0) {
+				System.out.println(x);
+			}
+		}
 		unbind(gl);
 		gl.glPopAttrib();
 		

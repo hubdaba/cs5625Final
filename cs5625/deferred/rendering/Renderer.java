@@ -1,5 +1,7 @@
 package cs5625.deferred.rendering;
 
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,6 +16,7 @@ import javax.vecmath.Quat4f;
 import javax.vecmath.Vector3f;
 
 import cs5625.deferred.materials.Material;
+import cs5625.deferred.materials.Texture;
 import cs5625.deferred.materials.Texture.Datatype;
 import cs5625.deferred.materials.Texture.Format;
 import cs5625.deferred.materials.UnshadedMaterial;
@@ -85,12 +88,6 @@ public class Renderer
 	private Material mWireframeMaterial, mWireframeMarkedEdgeMaterial;
 	private boolean mRenderWireframes = false;
 	
-	/* Used to control the bloom post-processing stage. */
-	private ShaderProgram mBloomShader = null;
-	private boolean mEnableBloom = false;
-	private float mKernelVariance = 16.0f;
-	private int mKernelWidth = 3;
-	private float mThreshold = 0.80f;
 	
 	/* Used to control gbuffer data vizualization. */
 	private ShaderProgram mVisShader = null;
@@ -110,21 +107,7 @@ public class Renderer
 	 * This is queried directly from the shader file. */
 	private int mMaxLightsInUberShader;
 	
-	/* All SSAO variables and uniform locations. */
-	private ShaderProgram mSSAOShader;
-	private int mNumRaysUniformLocation = -1;
-	private int mSampleRaysUniformLocation = -1;
-	private int mSampleRadiusUniformLocation = -1;
-	private int mProjectionMatrixUniformLocation = -1;
-	private int mScreenSizeUniformLocation = -1;
 	
-	/* The size of the sample rays array in the ssao shader. 
-	 * This is queried directly from the shader file. */
-	private int mMaxSSAORays;
-	
-	/* Local copies of the SSAO uniform data. */
-	private Vector3f[] mSampleRays = null;
-	private float mSampleRadius = 0.1f;
 	
 	/**
 	 * Renders a single frame of the scene. This is the main method of the Renderer class.
@@ -147,10 +130,7 @@ public class Renderer
 			
 			/* 2. Compute gradient buffer based on positions and normals, used for toon shading. */
 			computeGradientBuffer(gl);
-			
-			/* Also, compute the SSAO values for each pixel. */
-			computeSSAOBuffer(gl, camera);
-			
+		
 			/* 3. Apply deferred lighting to the g-buffer. At this point, the opaque scene has been rendered. */
 			lightGBuffer(gl, camera);
 
@@ -164,6 +144,10 @@ public class Renderer
 			{			
 				finalPass(gl);					 								 
 			}
+			
+			
+			
+			
 		}
 		catch (Exception err)
 		{
@@ -181,40 +165,7 @@ public class Renderer
 	 */
 	protected void finalPass(GL2 gl) throws OpenGLException
 	{
-		if(mEnableBloom)
-		{
-			/* Save state before we disable depth testing for blitting. */
-			gl.glPushAttrib(GL2.GL_ENABLE_BIT);
-			
-			/* Disable depth test and blend, since we just want to replace the contents of the framebuffer.
-			 * Since we are rendering an opaque fullscreen quad here, we don't bother clearing the buffer
-			 * first. */
-			gl.glDisable(GL2.GL_DEPTH_TEST);
-			gl.glDisable(GL2.GL_BLEND);
-			
-			/* Bind the final scene texture for post-processing. */
-			mGBufferFBO.getColorTexture(GBuffer_FinalSceneIndex).bind(gl, 0);
-			
-			/* Set all bloom shader uniforms. */
-			mBloomShader.bind(gl);
-			gl.glUniform1i(mBloomShader.getUniformLocation(gl, "KernelWidth"), mKernelWidth);
-			gl.glUniform1f(mBloomShader.getUniformLocation(gl, "KernelVariance"), mKernelVariance);
-			gl.glUniform1f(mBloomShader.getUniformLocation(gl, "Threshold"), mThreshold);
-			
-			/* Draw a full-screen quad to the framebuffer. */
-			Util.drawFullscreenQuad(gl, mViewportWidth, mViewportHeight);
-			
-			/* Unbind everything. */
-			mBloomShader.unbind(gl);
-			mGBufferFBO.getColorTexture(GBuffer_FinalSceneIndex).unbind(gl);
-
-			/* Restore attributes (blending and depth-testing) to as they were before. */
-			gl.glPopAttrib();
-			
-			/* Make sure nothing went wrong. */
-			OpenGLException.checkOpenGLError(gl);
-		}
-		else if (mPreviewIndex >= 6 && mPreviewIndex <= 8)
+		if (mPreviewIndex >= 6 && mPreviewIndex <= 8)
 		{
 			/* The keys '7', '8', and '9' correspond to gbuffer data visualization. */
 			/* Save state before we disable depth testing for blitting. */
@@ -306,6 +257,7 @@ public class Renderer
 		/* GBuffer is filled, so unbind it. */
 		mGBufferFBO.unbind(gl);
 		
+		
 		/* Check for errors after rendering, to help isolate. */
 		OpenGLException.checkOpenGLError(gl);
 	}
@@ -350,75 +302,6 @@ public class Renderer
 		gl.glPopAttrib();
 	}
 	
-	/**
-	 * Computes SSAO values based on the position and normal textures of the GBuffer. 
-	 */
-	private void computeSSAOBuffer(GL2 gl, Camera camera) throws OpenGLException
-	{
-		/* Bind the SSAO buffer as output. */
-		mGBufferFBO.bindOne(gl, GBuffer_SSAOIndex);
-
-		gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		gl.glClear(GL2.GL_COLOR_BUFFER_BIT);
-		
-		/* Save state before we disable depth testing for blitting. */
-		gl.glPushAttrib(GL2.GL_ENABLE_BIT);
-		
-		/* Disable depth test and blend, since we just want to replace the contents of the framebuffer.
-		 * Since we are rendering an opaque fullscreen quad here, we don't bother clearing the buffer
-		 * first. */
-		gl.glDisable(GL2.GL_DEPTH_TEST);
-		gl.glDisable(GL2.GL_BLEND);
-		
-		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).bind(gl, 0);
-		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, 1);
-		
-		/* We need to disable interpolation on the g-buffer, otherwise we get ringing artifacts!
-		 * This won't reduce the quality of our ssao because the g-buffer is full resolution. */
-		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).enableInterpolation(gl, false);
-		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).enableInterpolation(gl, false);
-		
-		/* Bind the SSAO shader and update the uniforms. */
-		mSSAOShader.bind(gl);
-		
-		float[] projMatrix = Util.fromMatrix4f(camera.getProjectionMatrix(mViewportWidth, mViewportHeight));
-		gl.glUniform1f(mSampleRadiusUniformLocation, mSampleRadius);
-		gl.glUniform2f(mScreenSizeUniformLocation, mViewportWidth, mViewportHeight);
-		gl.glUniformMatrix4fv(mProjectionMatrixUniformLocation, 1, false, projMatrix, 0);
-		
-		if (mSampleRays != null) {
-			if (mSampleRays.length > mMaxSSAORays) {
-				throw new RuntimeException("MAX_RAYS is " + mMaxSSAORays + ". " + mSampleRays.length + " is too many!");
-			}
-			
-			gl.glUniform1i(mNumRaysUniformLocation, mSampleRays.length);
-			for (int i = 0; i < mSampleRays.length; i++) {
-				gl.glUniform3f(mSampleRaysUniformLocation + i, mSampleRays[i].x, mSampleRays[i].y, mSampleRays[i].z);
-			}
-		}
-		else {
-			gl.glUniform1i(mNumRaysUniformLocation, 0);
-		}
-		
-		
-		/* Render. */
-		Util.drawFullscreenQuad(gl, mViewportWidth, mViewportHeight);
-		
-		/* Unbind everything. */
-		mSSAOShader.unbind(gl);
-		
-		/* Re-enable interpolation. */
-		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).enableInterpolation(gl, true);
-		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).enableInterpolation(gl, true);
-		
-		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).unbind(gl);
-		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).unbind(gl);
-
-		mGBufferFBO.unbind(gl);
-
-		/* Restore attributes (blending and depth-testing) to as they were before. */
-		gl.glPopAttrib();
-	}
 	
 	/**
 	 * Applies lighting to an already-filled gbuffer to produce the final scene. Output is sent 
@@ -777,130 +660,7 @@ public class Renderer
 	}
 	
 	/**
-	 * Enables or disables bloom.
-	 */
-	public void setBloom(boolean bloom)
-	{
-		mEnableBloom = bloom;
-	}
-	
-	/**
-	 * Returns true if bloom is enabled.
-	 */
-	public boolean getBloom()
-	{
-		return mEnableBloom;
-	}
-	
-	/**
-	 * Sets the cut-off threshold for the bloom algorithm.
-	 */
-	public void setBloomThreshold(float threshold)
-	{
-		mThreshold = threshold;
-	}
-	
-	/**
-	 * Gets the cut-off threshold for the bloom algorithm.
-	 */
-	public float getBloomThreshold()
-	{
-		return mThreshold;
-	}
-	
-	/**
-	 * Sets the variance of the Gaussian kernel used by bloom.
-	 */
-	public void setBloomVariance(float variance)
-	{
-		mKernelVariance = variance;
-	}
-	
-	/**
-	 * Gets the variance of the Gaussian kernel used by bloom.
-	 */
-	public float getBloomVariance()
-	{
-		return mKernelVariance;
-	}
-	
-	/**
-	 * Sets the half-width of the Gaussian kernel (in pixels).
-	 * The end-to-end width of the kernel is actually 2*width + 1 pixels.
-	 */
-	public void setBloomWidth(int width)
-	{
-		mKernelWidth = width;
-	}
-	
-	/**
-	 * Gets the half-width of the Gaussian kernel (in pixels).
-	 * The end-to-end width of the kernel is actually 2*width + 1 pixels.
-	 */
-	public int getBloomWidth()
-	{
-		return mKernelWidth;
-	}
-	
-	/**
-	 * Turns SSAO on/off in the final scene.
-	 */
-	public void setSSAOEnabled(boolean enable)
-	{
-		mEnableSSAO = enable;
-	}
-	
-	/**
-	 * Gets the current SSAO enabled state.
-	 */
-	public boolean getSSAOEnabled()
-	{
-		return mEnableSSAO;
-	}
-	
-	/**
-	 * Sets the SSAO sample radius (in pixels).
-	 */
-	public void setSSAORadius(float radius)
-	{
-		mSampleRadius = radius;
-	}
-	
-	/**
-	 * Gets the SSAO sample radius (in pixels).
-	 */
-	public float getSSAORadius()
-	{
-		return mSampleRadius;
-	}
-	
-	/**
-	 * This method should populate mSampleRays with 
-	 */
-	public void createNewSSAORays(int numRays)
-	{
-		// TODO PA4: Generate numRays random normalized vectors.
-		mSampleRays = new Vector3f[numRays];
-		for(int i = 0; i < numRays; i++) {
-			mSampleRays[i] = new Vector3f();
-		}
-	}
-	
-	/**
-	 * Returns the current number of sample rays.
-	 */
-	public int getSSAORayCount() {
-		return (mSampleRays == null) ? 0 : mSampleRays.length;
-	}
-	
-	/**
-	 * Returns the maximum number of sample rays supported by the SSAO shader.
-	 */
-	public int getMaxSSAORays()
-	{
-		return mMaxSSAORays;
-	}
-	
+
 	/**
 	 * Performs one-time initialization of OpenGL state and shaders used by this renderer.
 	 * @param drawable The OpenGL drawable this renderer will be rendering to.
@@ -950,12 +710,6 @@ public class Renderer
 			mSilhouetteShader.unbind(gl);
 			
 			
-			/* Load the bloom shader. */
-			mBloomShader = new ShaderProgram(gl, "shaders/bloom");
-			
-			mBloomShader.bind(gl);
-			gl.glUniform1i(mBloomShader.getUniformLocation(gl, "FinalSceneBuffer"), 0);
-			mBloomShader.unbind(gl);
 			
 			
 			/* Load the visualization shader. */
@@ -969,26 +723,7 @@ public class Renderer
 			mVisShader.unbind(gl);
 			
 			
-			/* Load the SSAO shader. */
-			mSSAOShader = new ShaderProgram(gl, "shaders/ssao");
-			
-			mSSAOShader.bind(gl);
-			gl.glUniform1i(mSSAOShader.getUniformLocation(gl, "DiffuseBuffer"), 0);
-			gl.glUniform1i(mSSAOShader.getUniformLocation(gl, "PositionBuffer"), 1);
-			mSSAOShader.unbind(gl);
-			
-			mNumRaysUniformLocation = mSSAOShader.getUniformLocation(gl, "NumRays");
-			mSampleRaysUniformLocation = mSSAOShader.getUniformLocation(gl, "SampleRays");
-			mSampleRadiusUniformLocation = mSSAOShader.getUniformLocation(gl, "SampleRadius");
-			mProjectionMatrixUniformLocation = mSSAOShader.getUniformLocation(gl, "ProjectionMatrix");
-			mScreenSizeUniformLocation = mSSAOShader.getUniformLocation(gl, "ScreenSize");
-			
-			/* Query the max number of sample rays. */
-		    mMaxSSAORays = mSSAOShader.getUniformArraySize(gl, "SampleRays");
-		    
-		    /* Start with half of the max number of rays. */
-		    createNewSSAORays(mMaxSSAORays / 2);
-			
+		
 		    
 			/* Load the material used to render mesh edges (e.g. creases for subdivs). */
 			mWireframeMaterial = new UnshadedMaterial(new Color3f(0.8f, 0.8f, 0.8f));
@@ -1048,7 +783,6 @@ public class Renderer
 		mGBufferFBO.releaseGPUResources(gl);
 		mUberShader.releaseGPUResources(gl);
 		mSilhouetteShader.releaseGPUResources(gl);
-		mBloomShader.releaseGPUResources(gl);
 		mVisShader.releaseGPUResources(gl);
 	}
 }

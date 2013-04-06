@@ -31,5 +31,41 @@ vec3 decode(vec2 v)
 void main()
 {
 	// TODO PA4: Implement SSAO. Your output color should be grayscale where white is unobscured and black is fully obscured.
-	gl_FragColor = vec4(1.0);
+	vec4 diffuse = texture2DRect(DiffuseBuffer, gl_FragCoord.xy);
+	vec4 position = texture2DRect(PositionBuffer, gl_FragCoord.xy);
+	int i;
+	vec3 normal = normalize(decode(vec2(diffuse.a, position.a)));
+	
+	vec3 axis1 = cross(normal, vec3(0.0, 0.0, 1.0));
+	vec3 axis2 = cross(normal, axis1);
+	
+	mat3 basisMat = mat3(axis1, axis2, normal);
+	//mat3 basisMat = mat3(vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
+	float numObstructed = 0.0;
+	float dotSum = 0.0;
+	
+	vec4 clipSpacePos = ProjectionMatrix * vec4(position.xyz, 1.0);
+	if (clipSpacePos.z <= 0.0) {
+		gl_FragColor = vec4(1.0);
+		return;
+	}
+	for (i = 0; i < NumRays; i++) {
+		vec3 transformedRay = SampleRadius * SampleRays[i];
+		if (dot(transformedRay, normal) < 0.0) {
+			continue;
+		}
+		vec4 clipSpace = ProjectionMatrix * vec4(transformedRay + position.xyz, 1.0);
+		clipSpace = clipSpace / clipSpace.w;
+		vec2 pixelCoord = ScreenSize * ((clipSpace.xy + 1.0)/2.0);
+		vec3 intersectPos = texture2DRect(PositionBuffer, pixelCoord).xyz;
+		vec4 clipSpaceIntersect = ProjectionMatrix * vec4(intersectPos, 1.0);
+		clipSpaceIntersect = clipSpaceIntersect / clipSpaceIntersect.w;
+		if (clipSpaceIntersect.z < clipSpace.z && clipSpaceIntersect.z > 0.0) {
+			numObstructed += dot(normal, normalize(SampleRays[i]));
+		}
+		dotSum += dot(normal, normalize(SampleRays[i]));
+	}
+	
+	gl_FragColor = vec4((dotSum - numObstructed)/dotSum);
+	//gl_FragColor = vec4(1.0);
 }
