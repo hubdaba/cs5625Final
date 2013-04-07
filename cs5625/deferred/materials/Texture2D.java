@@ -374,17 +374,7 @@ public class Texture2D extends Texture
 		
 		/* Unbind, restore state, check for errors, and done. */
 		unbind(gl);
-		gl.glBindTexture(GL2.GL_TEXTURE_2D, getHandle());
-		Buffer image = ByteBuffer.allocate((int) (100000));
-		gl.glGetTexImage(GL2.GL_TEXTURE_2D, 0, GL2.GL_RGBA, GL2.GL_UNSIGNED_BYTE, image);
-		((ByteBuffer)image).position(0);
-		for (int i = 0; i < 100000; i++) {
-			byte x = ((ByteBuffer)image).get();
-			if (x != 0) {
-				System.out.println(x);
-			}
-		}
-		unbind(gl);
+		
 		gl.glPopAttrib();
 		
 		OpenGLException.checkOpenGLError(gl);

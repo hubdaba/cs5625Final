@@ -23,12 +23,98 @@ import cs5625.deferred.misc.OpenGLResourceObject;
  */
 public class ShaderProgram implements OpenGLResourceObject
 {
-	
+
 	/* Internal variables of the shader. */
 	private int mHandle = -1;
 	private int mPreviousBinding[] = new int[1];
 	private boolean mIsBound = false;
+
+	public ShaderProgram(GL2 gl, String identifier, boolean hasGP, 
+					int geo_input_format, int geo_output_format, int geo_max_out) throws OpenGLException, IOException {
+		
+		
+		mHandle = gl.glCreateProgram();		
+		/* Create the two shader objects. */
+		int vertexShader   = createShaderObject(gl, GL2.GL_VERTEX_SHADER,   identifier + ".vp");
+		
+		int geometryShader = 0;
+		if (hasGP) {
+			geometryShader = createShaderObject(gl, GL2.GL_GEOMETRY_SHADER_ARB, identifier + ".gp");
+
+			if (geometryShader == 0) {
+				throw new OpenGLException("No source found for shader '" + identifier + "'.");
+			}
+			gl.glProgramParameteri(mHandle, GL2.GL_GEOMETRY_INPUT_TYPE_ARB, geo_input_format);
+			gl.glProgramParameteri(mHandle, GL2.GL_GEOMETRY_OUTPUT_TYPE_ARB, geo_output_format);
+			gl.glProgramParameteri(mHandle, GL2.GL_GEOMETRY_VERTICES_OUT_ARB, geo_max_out);
+		}
+
+		int fragmentShader = createShaderObject(gl, GL2.GL_FRAGMENT_SHADER, identifier + ".fp");
+		
+
+		/* If neither were created, we have no shader. */
+		if (vertexShader == 0 && fragmentShader == 0)
+		{
+			throw new OpenGLException("No source found for shader '" + identifier + "'.");
+		}
 	
+		/* Create the shader program object. */
+	
+
+		/* Attach vertex and fragment shaders, if they each exist. */
+		if (vertexShader != 0)
+		{
+			gl.glAttachShader(mHandle, vertexShader);
+		}
+
+		if (fragmentShader != 0)
+		{
+			gl.glAttachShader(mHandle, fragmentShader);
+		}
+		
+		if (hasGP && geometryShader != 0) {
+			gl.glAttachShader(mHandle, geometryShader);
+		}
+
+		/* Link the program and check its status. */
+		gl.glLinkProgram(mHandle);
+		int linkedSuccessfully[] = new int[1];;
+		gl.glGetProgramiv(mHandle, GL2.GL_LINK_STATUS, linkedSuccessfully, 0);
+
+		if (linkedSuccessfully[0] != GL2.GL_TRUE)
+		{
+			/* If linking failed, get the info log to tell us why. */
+			int infoLogLength[] = new int[1];
+			gl.glGetProgramiv(mHandle, GL2.GL_INFO_LOG_LENGTH, infoLogLength, 0);
+
+			byte infoLog[] = new byte[infoLogLength[0]];
+			int infoLogWritten[] = new int[1];
+			gl.glGetProgramInfoLog(mHandle, infoLogLength[0], infoLogWritten, 0, infoLog, 0);
+
+			/* Delete shader and program objects. */
+			gl.glDeleteProgram(mHandle);
+			mHandle = -1;
+
+			if (vertexShader != 0)
+			{
+				gl.glDeleteShader(vertexShader);
+			}
+
+			if (fragmentShader != 0)
+			{
+				gl.glDeleteShader(fragmentShader);
+			}
+			
+			if (geometryShader != 0) {
+				gl.glDeleteShader(geometryShader);
+			}
+
+			/* Throw an exception explaining what broke. */
+			throw new OpenGLException("Failed to link shader '" + identifier + "': " + new String(infoLog));
+		}
+
+	}
+
 	/**
 	 * Loads a shader resource named by the given identifier.
 	 *  
@@ -39,64 +125,9 @@ public class ShaderProgram implements OpenGLResourceObject
 	 */
 	public ShaderProgram(GL2 gl, String identifier) throws OpenGLException, IOException
 	{
-		/* Create the two shader objects. */
-		int vertexShader   = createShaderObject(gl, GL2.GL_VERTEX_SHADER,   identifier + ".vp");
-		int fragmentShader = createShaderObject(gl, GL2.GL_FRAGMENT_SHADER, identifier + ".fp");
-		
-		/* If neither were created, we have no shader. */
-		if (vertexShader == 0 && fragmentShader == 0)
-		{
-			throw new OpenGLException("No source found for shader '" + identifier + "'.");
-		}
-		
-		/* Create the shader program object. */
-		mHandle = gl.glCreateProgram();		
-		
-		/* Attach vertex and fragment shaders, if they each exist. */
-		if (vertexShader != 0)
-		{
-			gl.glAttachShader(mHandle, vertexShader);
-		}
-		
-		if (fragmentShader != 0)
-		{
-			gl.glAttachShader(mHandle, fragmentShader);
-		}
-		
-		/* Link the program and check its status. */
-		gl.glLinkProgram(mHandle);
-		int linkedSuccessfully[] = new int[1];;
-		gl.glGetProgramiv(mHandle, GL2.GL_LINK_STATUS, linkedSuccessfully, 0);
-		
-		if (linkedSuccessfully[0] != GL2.GL_TRUE)
-		{
-			/* If linking failed, get the info log to tell us why. */
-			int infoLogLength[] = new int[1];
-			gl.glGetProgramiv(mHandle, GL2.GL_INFO_LOG_LENGTH, infoLogLength, 0);
-			
-			byte infoLog[] = new byte[infoLogLength[0]];
-			int infoLogWritten[] = new int[1];
-			gl.glGetProgramInfoLog(mHandle, infoLogLength[0], infoLogWritten, 0, infoLog, 0);
-			
-			/* Delete shader and program objects. */
-			gl.glDeleteProgram(mHandle);
-			mHandle = -1;
-			
-			if (vertexShader != 0)
-			{
-				gl.glDeleteShader(vertexShader);
-			}
-			
-			if (fragmentShader != 0)
-			{
-				gl.glDeleteShader(fragmentShader);
-			}
-			
-			/* Throw an exception explaining what broke. */
-			throw new OpenGLException("Failed to link shader '" + identifier + "': " + new String(infoLog));
-		}
+			this(gl, identifier, false, -1, -1, -1);
 	}
-	
+
 	/**
 	 * Creates a single shader object with the given identifier.
 	 * 
@@ -108,17 +139,18 @@ public class ShaderProgram implements OpenGLResourceObject
 	 */
 	private int createShaderObject(GL2 gl, int type, String identifier) throws OpenGLException, IOException
 	{
+		
 		/* Read the source code file. */
 		URL url = ShaderProgram.class.getClassLoader().getResource(identifier);
 		if (url == null)
 		{
 			throw new IOException("Could not find shader file '" + identifier + "'.");
 		}
-		
+
 		BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream()));
 		String code = "";
 		String line = reader.readLine();
-		
+
 		while (line != null)
 		{
 			code += line + "\n";
@@ -130,7 +162,7 @@ public class ShaderProgram implements OpenGLResourceObject
 		{
 			return 0;
 		}
-		
+
 		/* Create the shader object, send the code to OpenGL, and compile. */
 		int shader = gl.glCreateShader(type);
 		gl.glShaderSource(shader, 1, new String[]{code}, new int[]{code.length()}, 0);
@@ -153,16 +185,16 @@ public class ShaderProgram implements OpenGLResourceObject
 			int writtenLogLength[] = new int[1];
 			byte infoLog[] = new byte[infoLogLength[0]];
 			gl.glGetShaderInfoLog(shader, infoLogLength[0], writtenLogLength, 0, infoLog, 0);
-			
+
 			/* Delete the failed shader object. */
 			gl.glDeleteShader(shader);
-			
+
 			/* Throw an exception detailing the problem. */
 			String typeString = (type == GL2.GL_VERTEX_SHADER ? "vertex" : (type == GL2.GL_FRAGMENT_SHADER ? "fragment" : Integer.toString(type)));
 			throw new OpenGLException("Failed to compile '" + identifier + "' " + typeString + " shader: " + new String(infoLog));
 		}
 	}
-	
+
 	/**
 	 * Returns a handle to the OpenGL shader object.
 	 */
@@ -186,7 +218,7 @@ public class ShaderProgram implements OpenGLResourceObject
 			mIsBound = true;
 		}
 	}
-	
+
 	/**
 	 * Returns true if this shader is currently bound.
 	 */
@@ -209,7 +241,7 @@ public class ShaderProgram implements OpenGLResourceObject
 			mIsBound = false;
 		}
 	}
-	
+
 	/**
 	 * Returns the location of the named uniform in this shader, or -1 if the uniform
 	 * doesn't appear (or isn't used) in the shader.
@@ -223,7 +255,7 @@ public class ShaderProgram implements OpenGLResourceObject
 	{
 		return gl.glGetUniformLocation(mHandle, uniformName);
 	}
-	
+
 	/**
 	 * Returns the location of the named attribute in this shader, or -1 if the attribute
 	 * doesn't appear (or isn't used) in the shader.
@@ -237,7 +269,7 @@ public class ShaderProgram implements OpenGLResourceObject
 	{
 		return gl.glGetAttribLocation(mHandle, attributeName);
 	}
-	
+
 	/**
 	 * Queries the shader program for the vector size of a uniform array.
 	 * For example, Renderer uses this to figure out how many lights the ubershader supports.
@@ -250,37 +282,37 @@ public class ShaderProgram implements OpenGLResourceObject
 	{
 		int count[] = new int[1];
 		int maxLen[] = new int[1];
-		
+
 		/* Start by figuring out how many uniforms there are and what the name buffer size should be. */
-	    gl.glGetProgramiv(getHandle(), GL2.GL_ACTIVE_UNIFORMS, count, 0);
-	    gl.glGetProgramiv(getHandle(), GL2.GL_ACTIVE_UNIFORM_MAX_LENGTH, maxLen, 0);
-	    
-	    if (maxLen[0] < 1)
-	    {
-	    	// Pick some large buffer size if the query fails.
-	    	// This is known to happen on Intel GPUs.
-	    	maxLen[0] = 512;
-	    }
-	    
-	    int size[] = new int[1];
-	    int type[] = new int[1];
-	    int used[] = new int[1];
+		gl.glGetProgramiv(getHandle(), GL2.GL_ACTIVE_UNIFORMS, count, 0);
+		gl.glGetProgramiv(getHandle(), GL2.GL_ACTIVE_UNIFORM_MAX_LENGTH, maxLen, 0);
+
+		if (maxLen[0] < 1)
+		{
+			// Pick some large buffer size if the query fails.
+			// This is known to happen on Intel GPUs.
+			maxLen[0] = 512;
+		}
+
+		int size[] = new int[1];
+		int type[] = new int[1];
+		int used[] = new int[1];
 		byte name[] = new byte[maxLen[0]];
 
 		/* Loop over the uniforms until we find "arrayName" or "arrayName[0]" and grab its size. */
-	    for(int i = 0; i < count[0]; ++i)
-	    {
-	    	/* We provide arrays for all fields (even if we don't use them) to prevent crashes. */
-	    	gl.glGetActiveUniform(getHandle(), i, maxLen[0], used, 0, size, 0, type, 0, name, 0);
-	    	
-	    	String str = new String(name, 0, used[0]);
-	    	if(str.equals(arrayName) || str.equals(arrayName + "[0]"))
-	    	{
-	    		return size[0];
-	    	}
-	    }
-	    
-	    try
+		for(int i = 0; i < count[0]; ++i)
+		{
+			/* We provide arrays for all fields (even if we don't use them) to prevent crashes. */
+			gl.glGetActiveUniform(getHandle(), i, maxLen[0], used, 0, size, 0, type, 0, name, 0);
+
+			String str = new String(name, 0, used[0]);
+			if(str.equals(arrayName) || str.equals(arrayName + "[0]"))
+			{
+				return size[0];
+			}
+		}
+
+		try
 		{
 			OpenGLException.checkOpenGLError(gl);
 		}
@@ -288,11 +320,11 @@ public class ShaderProgram implements OpenGLResourceObject
 		{
 			err.printStackTrace();
 		}
-	    
-	    // Not found.
-	    return 0;
+
+		// Not found.
+		return 0;
 	}
-	
+
 	@Override
 	public void releaseGPUResources(GL2 gl)
 	{
@@ -300,14 +332,14 @@ public class ShaderProgram implements OpenGLResourceObject
 		{
 			return;
 		}
-		
+
 		/* Get list of attached shader objects. */
 		int attachedShadersCount[] = new int[1];
 		gl.glGetProgramiv(mHandle, GL2.GL_ATTACHED_SHADERS, attachedShadersCount, 0);
-		
+
 		int attachedShaderHandles[] = new int[attachedShadersCount[0]];
 		gl.glGetAttachedShaders(mHandle, attachedShadersCount[0], null, 0, attachedShaderHandles, 0);
-		
+
 		/* Delete the program object. */
 		gl.glDeleteProgram(mHandle);
 		mHandle = -1;
@@ -317,7 +349,7 @@ public class ShaderProgram implements OpenGLResourceObject
 		{
 			gl.glDeleteShader(shader);
 		}
-		
+
 		/* We can't throw an exception here, but we can at least report if something went wrong. */
 		try
 		{
@@ -328,4 +360,5 @@ public class ShaderProgram implements OpenGLResourceObject
 			err.printStackTrace();
 		}
 	}
+	
 }

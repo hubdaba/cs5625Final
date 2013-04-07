@@ -1,7 +1,5 @@
 package cs5625.deferred.rendering;
 
-import java.nio.Buffer;
-import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,7 +14,6 @@ import javax.vecmath.Quat4f;
 import javax.vecmath.Vector3f;
 
 import cs5625.deferred.materials.Material;
-import cs5625.deferred.materials.Texture;
 import cs5625.deferred.materials.Texture.Datatype;
 import cs5625.deferred.materials.Texture.Format;
 import cs5625.deferred.materials.UnshadedMaterial;
@@ -88,6 +85,8 @@ public class Renderer
 	private Material mWireframeMaterial, mWireframeMarkedEdgeMaterial;
 	private boolean mRenderWireframes = false;
 	
+	private TerrainBlockRenderer terrainRenderer;
+	
 	
 	/* Used to control gbuffer data vizualization. */
 	private ShaderProgram mVisShader = null;
@@ -118,19 +117,18 @@ public class Renderer
 	 */
 	public void render(GLAutoDrawable drawable, SceneObject sceneRoot, Camera camera)
 	{
-		GL2 gl = drawable.getGL().getGL2();		
-				
+		GL2 gl = drawable.getGL().getGL2();			
 		try
 		{
+			
 			/* Reset lights array. It will be re-filled as the scene is traversed. */
 			mLights.clear();
 			
 			/* 1. Fill the gbuffer given this scene and camera. */ 
 			fillGBuffer(gl, sceneRoot, camera);
 			
-			/* 2. Compute gradient buffer based on positions and normals, used for toon shading. */
-			computeGradientBuffer(gl);
-		
+
+			
 			/* 3. Apply deferred lighting to the g-buffer. At this point, the opaque scene has been rendered. */
 			lightGBuffer(gl, camera);
 
@@ -139,21 +137,19 @@ public class Renderer
 			if (mPreviewIndex >= 0 && mPreviewIndex < GBuffer_FinalSceneIndex)
 			{
 				Util.renderTextureFullscreen(gl, mGBufferFBO.getColorTexture(mPreviewIndex));
+				
 			}
 			else
 			{			
 				finalPass(gl);					 								 
 			}
-			
-			
-			
-			
 		}
 		catch (Exception err)
 		{
 			/* If an error occurs in all that, print it, but don't kill the whole program. */
 			err.printStackTrace();
 		}
+		
 	}
 	
 	
@@ -207,6 +203,11 @@ public class Renderer
 		{
 			/* No post-processing is required; just display the unaltered scene. */
 			Util.renderTextureFullscreen(gl, mGBufferFBO.getColorTexture(GBuffer_FinalSceneIndex));
+		
+			terrainRenderer.testTexture(gl, this.mViewportWidth, mViewportHeight, 
+							mGBufferFBO.getColorTexture(GBuffer_FinalSceneIndex));
+			
+			
 		}
 	}
 	
@@ -700,15 +701,6 @@ public class Renderer
 			/* Get the maximum number of lights the shader supports. */
 			mMaxLightsInUberShader = mUberShader.getUniformArraySize(gl, "LightPositions");
 			
-		    
-			/* Load the silhouette (edge-detection) shader. */
-			mSilhouetteShader = new ShaderProgram(gl, "shaders/silhouette");
-
-			mSilhouetteShader.bind(gl);
-			gl.glUniform1i(mSilhouetteShader.getUniformLocation(gl, "DiffuseBuffer"), 0);
-			gl.glUniform1i(mSilhouetteShader.getUniformLocation(gl, "PositionBuffer"), 1);
-			mSilhouetteShader.unbind(gl);
-			
 			
 			
 			
@@ -728,6 +720,9 @@ public class Renderer
 			/* Load the material used to render mesh edges (e.g. creases for subdivs). */
 			mWireframeMaterial = new UnshadedMaterial(new Color3f(0.8f, 0.8f, 0.8f));
 			mWireframeMarkedEdgeMaterial = new UnshadedMaterial(new Color3f(1.0f, 0.0f, 1.0f));
+			
+			 terrainRenderer = new TerrainBlockRenderer(gl, new Vector3f(0.0f, 0.0f, 0.0f));
+			 terrainRenderer.fillTexture3D(gl);
 			
 			/* Make sure nothing went wrong. */
 			OpenGLException.checkOpenGLError(gl);
@@ -782,7 +777,6 @@ public class Renderer
 	{
 		mGBufferFBO.releaseGPUResources(gl);
 		mUberShader.releaseGPUResources(gl);
-		mSilhouetteShader.releaseGPUResources(gl);
 		mVisShader.releaseGPUResources(gl);
 	}
 }
