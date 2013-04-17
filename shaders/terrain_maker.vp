@@ -1,0 +1,6 @@
+uniform sampler2D TriTable;
+
+void main(void) {
+	
+  gl_Position = gl_Vertex;
+}

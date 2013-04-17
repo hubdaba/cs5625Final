@@ -59,7 +59,8 @@ public class FramebufferObject3D {
 			gl.glViewport(0, 0, mWidth, mHeight);
 			mIsBound = true;
 		}	
-		//gl.glDrawBuffer(GL2.GL_COLOR_ATTACHMENT0);
+		gl.glFramebufferTextureEXT(GL2.GL_FRAMEBUFFER, GL2.GL_COLOR_ATTACHMENT0, mTexture.getHandle(), 0);
+	//	gl.glDrawBuffer(GL2.GL_COLOR_ATTACHMENT0);
 	}
 	
 	public void unbind(GL2 gl) throws OpenGLException {

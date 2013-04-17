@@ -26,6 +26,7 @@ public abstract class Texture implements OpenGLResourceObject
 	 */
 	public enum Datatype
 	{
+		INT,
 		INT8, 
 		INT16, 
 		INT32, 
@@ -36,6 +37,7 @@ public abstract class Texture implements OpenGLResourceObject
 		{
 			switch(this)
 			{
+			case INT:	  return GL2.GL_INT;
 			case INT8:    return GL2.GL_UNSIGNED_BYTE;
 			case INT16:   return GL2.GL_UNSIGNED_SHORT;
 			case INT32:   return GL2.GL_UNSIGNED_INT;
@@ -55,7 +57,8 @@ public abstract class Texture implements OpenGLResourceObject
 		RGB, 
 		RGBA, 
 		LUMINANCE, 
-		DEPTH;
+		DEPTH,
+		ALPHA;
 		
 		public int toGLformat() throws OpenGLException
 		{
@@ -65,6 +68,7 @@ public abstract class Texture implements OpenGLResourceObject
 			case RGBA:      return GL2.GL_RGBA;
 			case LUMINANCE: return GL2.GL_LUMINANCE;
 			case DEPTH:     return GL2.GL_DEPTH_COMPONENT;
+			case ALPHA:		return GL2.GL_ALPHA;
 			}
 			
 			throw new OpenGLException("Unknown Format enum: " + this + ".");
@@ -74,6 +78,11 @@ public abstract class Texture implements OpenGLResourceObject
 		{
 			switch(type)
 			{
+			case INT:
+				switch(this)
+				{
+				case ALPHA:		return GL2.GL_ALPHA16;
+				}
 			case INT8: 
 				switch(this)
 				{
@@ -239,6 +248,8 @@ public abstract class Texture implements OpenGLResourceObject
 		int previousActive[] = new int[1];
 		gl.glGetIntegerv(GL2.GL_ACTIVE_TEXTURE, previousActive, 0);
 		gl.glActiveTexture(GL2.GL_TEXTURE0 + textureUnit);
+		
+		//System.out.println("binding " + GL2.GL_TEXTURE0 + " " + textureUnit);
 
 		/* Unbind any previous binding. */
 		unbind(gl);

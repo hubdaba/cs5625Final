@@ -1,5 +1,6 @@
 package cs5625.deferred.rendering;
 
+import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,6 +26,8 @@ import cs5625.deferred.scenegraph.Light;
 import cs5625.deferred.scenegraph.Mesh;
 import cs5625.deferred.scenegraph.PointLight;
 import cs5625.deferred.scenegraph.SceneObject;
+import cs5625.deferred.scenegraph.TerrainBlockRenderer;
+import cs5625.deferred.scenegraph.TerrainRenderer;
 
 /**
  * Renderer.java
@@ -78,15 +81,12 @@ public class Renderer
 
 	/* The "ubershader" used for performing deferred shading on the gbuffer, 
 	 * and the silhouette shader to compute edges for toon rendering. */
-	private ShaderProgram mUberShader, mSilhouetteShader;
-	private boolean mEnableToonShading = false;
+	private ShaderProgram mUberShader;
 	
 	/* Material for rendering generic wireframes and crease edges, and flag to enable/disable that. */
 	private Material mWireframeMaterial, mWireframeMarkedEdgeMaterial;
 	private boolean mRenderWireframes = false;
-	
-	private TerrainBlockRenderer terrainRenderer;
-	
+
 	
 	/* Used to control gbuffer data vizualization. */
 	private ShaderProgram mVisShader = null;
@@ -96,11 +96,7 @@ public class Renderer
 	private int mLightColorsUniformLocation = -1;
 	private int mLightAttenuationsUniformLocation = -1;
 	private int mNumLightsUniformLocation = -1;
-	private int mEnableToonShadingUniformLocation = -1;
 	
-	/* SSAO modifications to the ubershader. */
-	private int mEnableSSAOUniformLocation = -1;
-	private boolean mEnableSSAO = false;
 	
 	/* The size of the light uniform arrays in the ubershader. 
 	 * This is queried directly from the shader file. */
@@ -114,20 +110,32 @@ public class Renderer
 	 * @param drawable The drawable to render into.
 	 * @param sceneRoot The root node of the scene to render.
 	 * @param camera The camera describing the perspective to render from.
+	 * @throws IOException 
+	 * @throws OpenGLException 
 	 */
-	public void render(GLAutoDrawable drawable, SceneObject sceneRoot, Camera camera)
+	public void render(GLAutoDrawable drawable, SceneObject sceneRoot, Camera camera) 
 	{
-		GL2 gl = drawable.getGL().getGL2();			
+		GL2 gl = drawable.getGL().getGL2();	
+		/*TerrainRenderer renderer = new TerrainRenderer();
+		try {
+			renderer.setup(gl);
+			renderer.renderTerrain(gl);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (OpenGLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}*/
+	
+		
 		try
 		{
-			
 			/* Reset lights array. It will be re-filled as the scene is traversed. */
 			mLights.clear();
 			
 			/* 1. Fill the gbuffer given this scene and camera. */ 
 			fillGBuffer(gl, sceneRoot, camera);
-			
-
 			
 			/* 3. Apply deferred lighting to the g-buffer. At this point, the opaque scene has been rendered. */
 			lightGBuffer(gl, camera);
@@ -137,19 +145,15 @@ public class Renderer
 			if (mPreviewIndex >= 0 && mPreviewIndex < GBuffer_FinalSceneIndex)
 			{
 				Util.renderTextureFullscreen(gl, mGBufferFBO.getColorTexture(mPreviewIndex));
-				
 			}
 			else
 			{			
 				finalPass(gl);					 								 
 			}
-		}
-		catch (Exception err)
-		{
-			/* If an error occurs in all that, print it, but don't kill the whole program. */
+		} catch (Exception err) {
+				/* If an error occurs in all that, print it, but don't kill the whole program. */
 			err.printStackTrace();
 		}
-		
 	}
 	
 	
@@ -204,8 +208,6 @@ public class Renderer
 			/* No post-processing is required; just display the unaltered scene. */
 			Util.renderTextureFullscreen(gl, mGBufferFBO.getColorTexture(GBuffer_FinalSceneIndex));
 		
-			terrainRenderer.testTexture(gl, this.mViewportWidth, mViewportHeight, 
-							mGBufferFBO.getColorTexture(GBuffer_FinalSceneIndex));
 			
 			
 		}
@@ -253,7 +255,12 @@ public class Renderer
 		OpenGLException.checkOpenGLError(gl);
 		
 		/* Render the scene. */
-		renderObject(gl, camera, sceneRoot);
+		try {
+			renderObject(gl, camera, sceneRoot);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			System.out.println("ERROR");
+		}
 
 		/* GBuffer is filled, so unbind it. */
 		mGBufferFBO.unbind(gl);
@@ -262,47 +269,6 @@ public class Renderer
 		/* Check for errors after rendering, to help isolate. */
 		OpenGLException.checkOpenGLError(gl);
 	}
-
-	/**
-	 * Computes position and normal gradients based on the position and normal textures of the GBuffer, for 
-	 * use in edge detection (e.g. toon rendering). 
-	 */
-	private void computeGradientBuffer(GL2 gl) throws OpenGLException
-	{
-		/* Bind silhouette buffer as output. */
-		mGBufferFBO.bindOne(gl, GBuffer_GradientsIndex);
-
-		gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		gl.glClear(GL2.GL_COLOR_BUFFER_BIT);
-		
-		/* Save state before we disable depth testing for blitting. */
-		gl.glPushAttrib(GL2.GL_ENABLE_BIT);
-		
-		/* Disable depth test and blend, since we just want to replace the contents of the framebuffer.
-		 * Since we are rendering an opaque fullscreen quad here, we don't bother clearing the buffer
-		 * first. */
-		gl.glDisable(GL2.GL_DEPTH_TEST);
-		gl.glDisable(GL2.GL_BLEND);
-		
-		/* Bind the diffuse and position textures so the edge-detection shader can read out position and normal data. */
-		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).bind(gl, 0);
-		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, 1);
-		
-		/* Bind silhouette shader and render. */
-		mSilhouetteShader.bind(gl);
-		Util.drawFullscreenQuad(gl, mViewportWidth, mViewportHeight);
-		
-		/* Unbind everything. */
-		mSilhouetteShader.unbind(gl);
-		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).unbind(gl);
-		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).unbind(gl);
-
-		mGBufferFBO.unbind(gl);
-
-		/* Restore attributes (blending and depth-testing) to as they were before. */
-		gl.glPopAttrib();
-	}
-	
 	
 	/**
 	 * Applies lighting to an already-filled gbuffer to produce the final scene. Output is sent 
@@ -372,9 +338,7 @@ public class Renderer
 		
 		/* Ubershader needs to know how many lights. */
 		gl.glUniform1i(mNumLightsUniformLocation, mLights.size());
-		gl.glUniform1i(mEnableToonShadingUniformLocation, (mEnableToonShading ? 1 : 0));
-		gl.glUniform1i(mEnableSSAOUniformLocation, (mEnableSSAO ? 1 : 0));
-
+	
 		/* Let there be light! */
 		Util.drawFullscreenQuad(gl, mViewportWidth, mViewportHeight);
 		
@@ -403,8 +367,9 @@ public class Renderer
 	 * @param dcm The dynamic cub map that we are rendering to. If it is not equal to null, we check to
 	 *        see if the object being rendered is the same as the one stored in the DCM. If it is, then
 	 *        we don't render it.
+	 * @throws IOException 
 	 */
-	private void renderObject(GL2 gl, Camera camera, SceneObject obj) throws OpenGLException
+	private void renderObject(GL2 gl, Camera camera, SceneObject obj) throws OpenGLException, IOException
 	{
 		/* If the object is not visible, we skip the rendition of it and all its children */
 		if (!obj.isVisible()) {
@@ -425,8 +390,13 @@ public class Renderer
 		gl.glRotatef(orientation.angle * 180.0f / (float)Math.PI, orientation.x, orientation.y, orientation.z);
 		gl.glScalef(scale, scale, scale);
 		
+		if (obj instanceof TerrainRenderer) {
+			((TerrainRenderer) obj).setup(gl);
+			((TerrainRenderer) obj).getMaterial().retrieveShader(gl, mShaderCache);
+			((TerrainRenderer) obj).renderTerrain(gl);
+		}
 		/* Render this object as appropriate for its type. */
-		if (obj instanceof Geometry)
+		else if (obj instanceof Geometry)
 		{
 			for (Mesh mesh : ((Geometry)obj).getMeshes())
 			{
@@ -627,22 +597,6 @@ public class Renderer
 	}
 	
 	/**
-	 * Enables or disables toon shading.
-	 */
-	public void setToonShading(boolean toonShade)
-	{
-		mEnableToonShading = toonShade;
-	}
-	
-	/**
-	 * Returns true if toon shading is enabled.
-	 */
-	public boolean getToonShading()
-	{
-		return mEnableToonShading;
-	}
-	
-	/**
 	 * Enables or disables rendering of mesh edges.
 	 * 
 	 * All edges are rendered in thin grey wireframe, and marked edges (e.g. creases) are rendered in thick pink. 
@@ -659,6 +613,7 @@ public class Renderer
 	{
 		return mRenderWireframes;
 	}
+
 	
 	/**
 
@@ -676,6 +631,9 @@ public class Renderer
 
 		try
 		{
+			TerrainBlockRenderer.initializeTerrain(gl);
+			
+			
 			/* Load the ubershader. */
 			mUberShader = new ShaderProgram(gl, "shaders/ubershader");
 
@@ -695,9 +653,7 @@ public class Renderer
 			mLightColorsUniformLocation = mUberShader.getUniformLocation(gl, "LightColors");
 			mLightAttenuationsUniformLocation = mUberShader.getUniformLocation(gl, "LightAttenuations");
 			mNumLightsUniformLocation = mUberShader.getUniformLocation(gl, "NumLights");
-			mEnableToonShadingUniformLocation = mUberShader.getUniformLocation(gl, "EnableToonShading");
-			mEnableSSAOUniformLocation = mUberShader.getUniformLocation(gl, "EnableSSAO");
-			
+
 			/* Get the maximum number of lights the shader supports. */
 			mMaxLightsInUberShader = mUberShader.getUniformArraySize(gl, "LightPositions");
 			
@@ -720,9 +676,6 @@ public class Renderer
 			/* Load the material used to render mesh edges (e.g. creases for subdivs). */
 			mWireframeMaterial = new UnshadedMaterial(new Color3f(0.8f, 0.8f, 0.8f));
 			mWireframeMarkedEdgeMaterial = new UnshadedMaterial(new Color3f(1.0f, 0.0f, 1.0f));
-			
-			 terrainRenderer = new TerrainBlockRenderer(gl, new Vector3f(0.0f, 0.0f, 0.0f));
-			 terrainRenderer.fillTexture3D(gl);
 			
 			/* Make sure nothing went wrong. */
 			OpenGLException.checkOpenGLError(gl);

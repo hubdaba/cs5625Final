@@ -1,0 +1,35 @@
+
+/* Pass eyespace position and normal, and texcoord, to the fragment shader. */
+varying vec3 EyespacePosition;
+varying vec3 EyespaceNormal;
+
+uniform sampler3D DensityFunction;
+uniform vec3 LowerCorner;
+
+void main()
+{
+
+	vec3 coordinate = gl_Vertex.xyz - LowerCorner;
+	vec3 gradient = vec3(0.0);
+	gradient.x = texture3D(DensityFunction, coordinate).x
+	 					- texture3D(DensityFunction, coordinate - vec3(1.0/32.0, 0.0, 0.0)).x;
+	 					
+	gradient.y = texture3D(DensityFunction, coordinate).x
+	 					- texture3D(DensityFunction, coordinate - vec3(0.0, 1.0/32.0, 0.0)).x;
+	 					
+	gradient.z = texture3D(DensityFunction, coordinate).x
+	 					- texture3D(DensityFunction, coordinate - vec3(0.0, 0.0, 1.0/32.0)).x;
+	
+	gradient = normalize(gradient);
+	
+	/* Standard vertex transform. */
+	gl_Position = ftransform();
+	
+	
+	// Transform stuff into eye space and store in varyings.
+	EyespacePosition = vec3(gl_ModelViewMatrix * gl_Vertex);
+   //EyespaceNormal = vec3(1.0, 0.0, 0.0);
+   EyespaceNormal = gradient;
+  
+	
+}

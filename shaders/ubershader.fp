@@ -16,6 +16,7 @@
 const int UNSHADED_MATERIAL_ID = 1;
 const int LAMBERTIAN_MATERIAL_ID = 2;
 const int BLINNPHONG_MATERIAL_ID = 3;
+const int TERRAIN_MATERIAL_ID = 4;
 
 /* Some constant maximum number of lights which GLSL and Java have to agree on. */
 #define MAX_LIGHTS 40
@@ -165,6 +166,14 @@ void main()
 		{
 			gl_FragColor.rgb += shadeBlinnPhong(diffuse, materialParams1.gba, materialParams2.a,
 				position, normal, LightPositions[i], LightColors[i], LightAttenuations[i]);
+		}
+	}
+	else if (materialID == TERRAIN_MATERIAL_ID)
+	{
+		/* Accumulate Lambertian shading for each light. */
+		for (int i = 0; i < NumLights; ++i)
+		{
+			gl_FragColor.rgb += shadeLambertian(diffuse, position, normal, LightPositions[i], LightColors[i], LightAttenuations[i]);
 		}
 	}
 	else

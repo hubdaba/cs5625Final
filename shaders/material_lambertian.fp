@@ -22,10 +22,14 @@ uniform vec3 DiffuseColor;
 uniform sampler2D DiffuseTexture;
 uniform bool HasDiffuseTexture;
 
+uniform sampler3D DiffuseTexture3D;
+uniform bool HasDiffuseTexture3D;
+
 /* Fragment position, normal, and texcoord passed from the vertex shader. */
 varying vec3 EyespacePosition;
 varying vec3 EyespaceNormal;
 varying vec2 TexCoord;
+varying vec3 TexCoord3D;
 
 /* Encodes a normalized vector as a vec2. See Renderer.java for more info. */
 vec2 encode(vec3 n)
@@ -36,13 +40,25 @@ vec2 encode(vec3 n)
 void main()
 {
     vec2 enc = encode(normalize(EyespaceNormal));
-	// Store diffuse color, position, encoded normal, material ID, and all other useful data in the g-buffer.
-    if (HasDiffuseTexture) {
+  // Store diffuse color, position, encoded normal, material ID, and all other useful data in the g-buffer.
+   if (HasDiffuseTexture) {
       gl_FragData[0] = vec4(texture2D(DiffuseTexture, TexCoord).xyz, enc.x);
     } else {
   		gl_FragData[0] = vec4(DiffuseColor, enc.x);
    	}
-    gl_FragData[1] = vec4(EyespacePosition, enc.y);
+ 	if (HasDiffuseTexture3D) {
+   		float val = texture3D(DiffuseTexture3D, TexCoord3D).x;
+   		if (val > 1.0) {
+   			gl_FragData[0] = vec4(0.0, 0.0, 1.0, enc.x);
+   		} else if (val < 0.0) {
+   			gl_FragData[0] = vec4(-val, 0.0, 0.0, enc.x);
+   		} else {
+   			gl_FragData[0] = vec4(0.0, val, 0.0, enc.x);
+   		}
+   	} else {
+   		gl_FragData[0] = vec4(1.0, 1.0, 0.0, enc.x);
+   	}
+   	gl_FragData[1] = vec4(EyespacePosition, enc.y);
     gl_FragData[2] = vec4(float(LAMBERTIAN_MATERIAL_ID), 0.0, 0.0, 0.0);
     gl_FragData[3] = vec4(0.0);
 }

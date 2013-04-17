@@ -15,6 +15,8 @@
 varying vec3 EyespacePosition;
 varying vec3 EyespaceNormal;
 varying vec2 TexCoord;
+varying vec3 TexCoord3D;
+uniform bool HasDiffuseTexture3D;
 
 void main()
 {
@@ -24,5 +26,9 @@ void main()
 	// Transform stuff into eye space and store in varyings.
 	EyespacePosition = vec3(gl_ModelViewMatrix * gl_Vertex);
     EyespaceNormal = normalize(gl_NormalMatrix * gl_Normal);
+    if (HasDiffuseTexture3D) {
+		TexCoord3D = gl_MultiTexCoord0.xyz;
+	}
 	TexCoord = gl_MultiTexCoord0.xy;
+	
 }

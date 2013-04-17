@@ -30,7 +30,8 @@ public class ShaderProgram implements OpenGLResourceObject
 	private boolean mIsBound = false;
 
 	public ShaderProgram(GL2 gl, String identifier, boolean hasGP, 
-					int geo_input_format, int geo_output_format, int geo_max_out) throws OpenGLException, IOException {
+					int geo_input_format, int geo_output_format, int geo_max_out,
+					boolean use_transform_feedback) throws OpenGLException, IOException {
 		
 		
 		mHandle = gl.glCreateProgram();		
@@ -45,8 +46,11 @@ public class ShaderProgram implements OpenGLResourceObject
 				throw new OpenGLException("No source found for shader '" + identifier + "'.");
 			}
 			gl.glProgramParameteri(mHandle, GL2.GL_GEOMETRY_INPUT_TYPE_ARB, geo_input_format);
+			OpenGLException.checkOpenGLError(gl);
 			gl.glProgramParameteri(mHandle, GL2.GL_GEOMETRY_OUTPUT_TYPE_ARB, geo_output_format);
+			OpenGLException.checkOpenGLError(gl);
 			gl.glProgramParameteri(mHandle, GL2.GL_GEOMETRY_VERTICES_OUT_ARB, geo_max_out);
+			OpenGLException.checkOpenGLError(gl);
 		}
 
 		int fragmentShader = createShaderObject(gl, GL2.GL_FRAGMENT_SHADER, identifier + ".fp");
@@ -74,6 +78,13 @@ public class ShaderProgram implements OpenGLResourceObject
 		
 		if (hasGP && geometryShader != 0) {
 			gl.glAttachShader(mHandle, geometryShader);
+		}
+		
+		if (use_transform_feedback) {
+			System.out.println("adding transform feedback params");
+			String[] transformFeedbackParams = {"gl_Position"};
+			gl.glTransformFeedbackVaryings(mHandle, 1, 
+							transformFeedbackParams, GL2.GL_SEPARATE_ATTRIBS);		
 		}
 
 		/* Link the program and check its status. */
@@ -114,6 +125,12 @@ public class ShaderProgram implements OpenGLResourceObject
 		}
 
 	}
+	
+	public ShaderProgram(GL2 gl, String identifier, boolean hasGP, 
+			int geo_input_format, int geo_output_format, int geo_max_out) throws OpenGLException, IOException {
+		this(gl, identifier, hasGP, geo_input_format, geo_output_format, geo_max_out, false);
+	}
+
 
 	/**
 	 * Loads a shader resource named by the given identifier.
@@ -125,7 +142,7 @@ public class ShaderProgram implements OpenGLResourceObject
 	 */
 	public ShaderProgram(GL2 gl, String identifier) throws OpenGLException, IOException
 	{
-			this(gl, identifier, false, -1, -1, -1);
+			this(gl, identifier, false, -1, -1, -1, false);
 	}
 
 	/**
@@ -202,6 +219,8 @@ public class ShaderProgram implements OpenGLResourceObject
 	{
 		return mHandle;
 	}
+	
+	
 
 	/**
 	 * Activates this shader so it will be used for subsequent rendering.
@@ -254,6 +273,20 @@ public class ShaderProgram implements OpenGLResourceObject
 	public int getUniformLocation(GL2 gl, String uniformName)
 	{
 		return gl.glGetUniformLocation(mHandle, uniformName);
+	}
+	
+	/**
+	 * Returns the location of the named uniform in this shader, or -1 if the uniform
+	 * doesn't appear (or isn't used) in the shader.
+
+	 * @param gl The OpenGL state.
+	 * @param uniformName Name of the desired uniform.
+	 * 
+	 * @return Location of the named uniform, to be used with the `glUniform**()` functions.
+	 */
+	public int getUniformLocationARB(GL2 gl, String uniformName)
+	{
+		return gl.glGetUniformLocationARB(mHandle, uniformName);
 	}
 
 	/**

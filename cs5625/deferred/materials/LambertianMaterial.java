@@ -22,10 +22,12 @@ public class LambertianMaterial extends Material
 	/* Lambertian material properties. */
 	private Color3f mDiffuseColor = new Color3f(1.0f, 1.0f, 1.0f);
 	private Texture2D mDiffuseTexture = null;
+	private Texture3D mDiffuseTexture3D = null;
 
 	/* Uniform locations. */
 	private int mDiffuseUniformLocation = -1;
 	private int mHasDiffuseTextureUniformLocation = -1;
+	private int mHasDiffuseTexture3DUniformLocation = -1;
 	
 	public LambertianMaterial()
 	{
@@ -56,6 +58,14 @@ public class LambertianMaterial extends Material
 	{
 		mDiffuseTexture = texture;
 	}
+	
+	public Texture3D getDiffuseTexture3D() {
+		return mDiffuseTexture3D;
+	}
+	
+	public void setDiffuseTexture3D(Texture3D texture) {
+		mDiffuseTexture3D = texture;
+	}
 
 	@Override
 	public void bind(GL2 gl) throws OpenGLException
@@ -71,6 +81,12 @@ public class LambertianMaterial extends Material
 		} else {
 			gl.glUniform1i(mHasDiffuseTextureUniformLocation, 0);
 		}
+		if (mDiffuseTexture3D != null) {
+			gl.glUniform1i(mHasDiffuseTexture3DUniformLocation, 1);
+			mDiffuseTexture3D.bind(gl, 1);
+		} else {
+			gl.glUniform1i(mHasDiffuseTexture3DUniformLocation, 0);
+		}
 		
 		// TODO PA4 Prereq: Set shader uniforms and bind any textures.
 	}
@@ -84,6 +100,9 @@ public class LambertianMaterial extends Material
 		if (mDiffuseTexture != null) {
 			mDiffuseTexture.unbind(gl);
 		}
+		if (mDiffuseTexture3D != null) {
+			mDiffuseTexture3D.unbind(gl);
+		}
 	}
 	
 	@Override
@@ -92,10 +111,11 @@ public class LambertianMaterial extends Material
 		/* Get locations of uniforms in this shader. */
 		mDiffuseUniformLocation = shader.getUniformLocation(gl, "DiffuseColor");
 		mHasDiffuseTextureUniformLocation = shader.getUniformLocation(gl, "HasDiffuseTexture");
-
+		mHasDiffuseTexture3DUniformLocation = shader.getUniformLocation(gl, "HasDiffuseTexture3D");
 		/* This uniform won't ever change, so just set it here. */
 		shader.bind(gl);
 		gl.glUniform1i(shader.getUniformLocation(gl, "DiffuseTexture"), 0);
+		gl.glUniform1i(shader.getUniformLocation(gl, "DiffuseTexture3D"), 1);
 		shader.unbind(gl);
 	}
 
