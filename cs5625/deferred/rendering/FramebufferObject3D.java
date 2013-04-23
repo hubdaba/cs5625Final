@@ -32,11 +32,11 @@ public class FramebufferObject3D {
 		mTexture = new Texture3D(gl, format, datatype, width, height, depth);
 		gl.glFramebufferTextureEXT(GL2.GL_FRAMEBUFFER, GL2.GL_COLOR_ATTACHMENT0, mTexture.getHandle(), 0);
 		
-		int status = gl.glCheckFramebufferStatus(GL2.GL_FRAMEBUFFER);
+	/*	int status = gl.glCheckFramebufferStatus(GL2.GL_FRAMEBUFFER);
 		if (status != GL2.GL_FRAMEBUFFER_COMPLETE) {
 			throw new OpenGLException("Framebuffer incomplete: " + status + ".");
 		}
-		
+		*/
 		gl.glBindFramebuffer(GL2.GL_FRAMEBUFFER, previousBinding[0]);
 	
 	}

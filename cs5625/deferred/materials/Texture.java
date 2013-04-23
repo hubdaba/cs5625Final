@@ -37,7 +37,7 @@ public abstract class Texture implements OpenGLResourceObject
 		{
 			switch(this)
 			{
-			case INT:	  return GL2.GL_INT;
+			case INT:	  return GL2.GL_FLOAT;
 			case INT8:    return GL2.GL_UNSIGNED_BYTE;
 			case INT16:   return GL2.GL_UNSIGNED_SHORT;
 			case INT32:   return GL2.GL_UNSIGNED_INT;
@@ -68,7 +68,7 @@ public abstract class Texture implements OpenGLResourceObject
 			case RGBA:      return GL2.GL_RGBA;
 			case LUMINANCE: return GL2.GL_LUMINANCE;
 			case DEPTH:     return GL2.GL_DEPTH_COMPONENT;
-			case ALPHA:		return GL2.GL_ALPHA;
+			case ALPHA:		return GL2.GL_RED;
 			}
 			
 			throw new OpenGLException("Unknown Format enum: " + this + ".");
@@ -81,7 +81,7 @@ public abstract class Texture implements OpenGLResourceObject
 			case INT:
 				switch(this)
 				{
-				case ALPHA:		return GL2.GL_ALPHA16;
+				case ALPHA:		return GL2.GL_R16;
 				}
 			case INT8: 
 				switch(this)

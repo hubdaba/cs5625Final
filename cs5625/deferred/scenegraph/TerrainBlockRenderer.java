@@ -1,11 +1,14 @@
 package cs5625.deferred.scenegraph;
 
+import geometry.SuperBlock;
+
 import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
 import javax.media.opengl.GL2;
 import javax.media.opengl.glu.GLU;
+import javax.vecmath.Tuple3f;
 import javax.vecmath.Vector3f;
 
 import cs5625.deferred.materials.Texture;
@@ -17,9 +20,8 @@ import cs5625.deferred.rendering.FramebufferObject3D;
 import cs5625.deferred.rendering.McTables;
 import cs5625.deferred.rendering.ShaderProgram;
 
-public class TerrainBlockRenderer {
-	public static int NUM_VOXELS = 32;
-	public static float BLOCK_SIZE = 1f;
+public class TerrainBlockRenderer extends SuperBlock {
+	public int numVoxels;
 	private static ShaderProgram mDensityShader;
 
 	private static ShaderProgram mTerrainShader;
@@ -27,35 +29,37 @@ public class TerrainBlockRenderer {
 	/* The uniform location for the terrain generation*/
 	private static int mLayerDensityUniformLocation;
 	private static int mLowerCornerDensityUniformLocation;
-	
+	private static int mNumVoxelsDensityUniformLocation;
+	private static int mBlockSizeDensityUniformLocation;
+
 	private static int mTerrainLowerCornerUniformLocation;
+	private static int mTerrainNumVoxelsUniformLocation;
+	private static int mTerrainBlockSizeUniformLocation;
 	private FramebufferObject3D blockDensityFunction;
 
 	private static boolean initialized = false;
 
 	private static Texture2D triTableTextureHandle;
 
-	Vector3f lowerCorner;
-	
 	private int bufferHandle;
 
 	private int num_polygons = -1;
-	private boolean vbo_filled = false;
+	private boolean texture_filled = false;
 
 
-	public TerrainBlockRenderer(GL2 gl, Vector3f lowerCorner) throws OpenGLException, IOException {
-		this.lowerCorner = lowerCorner;
-		
+	public TerrainBlockRenderer(GL2 gl, Tuple3f minPoint, int numVoxels, float sideLength) throws OpenGLException, IOException {
+		super(minPoint, sideLength);
+		this.numVoxels = numVoxels;
 		blockDensityFunction = new FramebufferObject3D(gl, Texture3D.Format.RGBA,
-				Texture3D.Datatype.FLOAT16, NUM_VOXELS + 1,NUM_VOXELS + 1, NUM_VOXELS + 2);
-		
-		
-	
+				Texture3D.Datatype.FLOAT16, numVoxels + 1, numVoxels + 1, numVoxels + 2);
+
+
+
 		int[] buffer = new int[1];
 
 		gl.glGenBuffers(1, buffer, 0);
 		gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, buffer[0]);
-		gl.glBufferData(GL2.GL_ARRAY_BUFFER, 4L * (long)Math.pow(NUM_VOXELS, 3) * 15L * 8L, null, GL2.GL_STREAM_DRAW);
+		gl.glBufferData(GL2.GL_ARRAY_BUFFER, 4L * (long)Math.pow(numVoxels, 3) * 15L * 8L, null, GL2.GL_STREAM_DRAW);
 		bufferHandle = buffer[0];
 		gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, 0);
 	}
@@ -85,12 +89,16 @@ public class TerrainBlockRenderer {
 
 			mLayerDensityUniformLocation = mDensityShader.getUniformLocation(gl, "Layer");
 			mLowerCornerDensityUniformLocation = mDensityShader.getUniformLocation(gl, "LowerCorner");
-		
+			mNumVoxelsDensityUniformLocation = mDensityShader.getUniformLocation(gl, "NumVoxels");
+			mBlockSizeDensityUniformLocation = mDensityShader.getUniformLocation(gl, "BlockSize");
+
 			mTerrainShader.bind(gl);
 			gl.glUniform1i(mTerrainShader.getUniformLocation(gl, "TriTable"), 1);
 			gl.glUniform1i(mTerrainShader.getUniformLocation(gl, "DensityFunction"), 0);
 			mTerrainShader.unbind(gl);
 			mTerrainLowerCornerUniformLocation = mTerrainShader.getUniformLocation(gl, "LowerCorner");
+			mTerrainNumVoxelsUniformLocation = mTerrainShader.getUniformLocation(gl, "NumVoxels");
+			mTerrainBlockSizeUniformLocation = mTerrainShader.getUniformLocation(gl, "BlockSize");
 			OpenGLException.checkOpenGLError(gl);
 
 			initialized = true;
@@ -98,15 +106,18 @@ public class TerrainBlockRenderer {
 	}
 
 	public void fillTexture3D(GL2 gl) throws OpenGLException {
+		if (this.texture_filled) {
+			return;
+		}
 		gl.glPushAttrib(GL2.GL_TRANSFORM_BIT);
 
 		gl.glMatrixMode(GL2.GL_PROJECTION);
 		gl.glPushMatrix();
 		gl.glLoadIdentity();
 		GLU glu = GLU.createGLU(gl);
-	
+
 		glu.gluPerspective(90, 1.0f, 1.0f, 100f);
-	
+
 
 		gl.glMatrixMode(GL2.GL_MODELVIEW);
 		gl.glPushMatrix();
@@ -121,11 +132,13 @@ public class TerrainBlockRenderer {
 
 		blockDensityFunction.bind(gl);
 
-		for (int i = 0; i <= NUM_VOXELS + 1; i++) {
+		for (int i = 0; i <= numVoxels + 1; i++) {
 			mDensityShader.bind(gl);
 			gl.glUniform1i(mLayerDensityUniformLocation, i);
-			gl.glUniform3f(mLowerCornerDensityUniformLocation, lowerCorner.x, lowerCorner.y, lowerCorner.z);
-		
+			gl.glUniform3f(mLowerCornerDensityUniformLocation, minPoint.x, minPoint.y, minPoint.z);
+			gl.glUniform1f(mNumVoxelsDensityUniformLocation, numVoxels);
+			gl.glUniform1f(mBlockSizeDensityUniformLocation, sideLength);
+
 			gl.glBegin(GL2.GL_TRIANGLES);
 			gl.glVertex3d(1, 1, 0);
 			gl.glVertex3d(-1, 1, 0);
@@ -139,7 +152,7 @@ public class TerrainBlockRenderer {
 
 		blockDensityFunction.unbind(gl);
 
-	
+
 		gl.glPopMatrix();
 
 		gl.glMatrixMode(GL2.GL_PROJECTION);
@@ -153,10 +166,10 @@ public class TerrainBlockRenderer {
 	}
 
 	public void renderPolygons(GL2 gl) throws OpenGLException {
-		if (vbo_filled) {
-			return;
+		if (num_polygons >= 0) {
+			return; 
 		}
-		
+
 		int queries[] = new int[1];
 		int queryHandle;
 
@@ -170,8 +183,10 @@ public class TerrainBlockRenderer {
 		this.blockDensityFunction.getTexture().bind(gl, 0);
 		OpenGLException.checkOpenGLError(gl);
 		gl.glUniform3f(mTerrainLowerCornerUniformLocation, 
-				this.lowerCorner.x, this.lowerCorner.y, this.lowerCorner.z);
-		
+				this.minPoint.x, this.minPoint.y, this.minPoint.z);
+		gl.glUniform1f(mTerrainNumVoxelsUniformLocation, numVoxels);
+		gl.glUniform1f(mTerrainBlockSizeUniformLocation, sideLength);
+
 		gl.glEnable(GL2.GL_RASTERIZER_DISCARD);
 		gl.glBindBufferBase(GL2.GL_TRANSFORM_FEEDBACK_BUFFER, 0, bufferHandle);
 		gl.glBeginQuery(GL2.GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN, queryHandle);
@@ -179,17 +194,17 @@ public class TerrainBlockRenderer {
 
 		gl.glBegin(GL2.GL_POINTS);
 
-		for (int i = 0; i < NUM_VOXELS; i++) {
-			for (int j = 0; j < NUM_VOXELS; j++) {
-				for (int k = 0; k < NUM_VOXELS; k++) {
-					gl.glVertex3d(((double)i), ((double)j), ((double)k));
+		for (int i = 0; i < numVoxels; i++) {
+			for (int j = 0; j < numVoxels; j++) {
+				for (int k = 0; k < numVoxels; k++) {
+					gl.glVertex3d(((double)k), ((double)j), ((double)i));
 				}
 			}
 		}
 
 
 		gl.glEnd();
-		
+
 		gl.glEndTransformFeedback();
 		OpenGLException.checkOpenGLError(gl);
 		gl.glEndQuery(GL2.GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN);
@@ -200,39 +215,44 @@ public class TerrainBlockRenderer {
 		mTerrainShader.unbind(gl);
 		IntBuffer result = IntBuffer.allocate(1);
 		gl.glGetQueryObjectuiv(queryHandle, GL2.GL_QUERY_RESULT, result);
-		System.out.println("value is " + result.get(0));
 
 		this.num_polygons = result.get(0);
-		
+
 		if (num_polygons == 0) {
-			int buffers[] = new int[1];
-			buffers[0] = bufferHandle;
-			gl.glDeleteBuffers(1, buffers, 0);
-			this.blockDensityFunction.releaseGPUResources(gl);
+			releaseGPUResources(gl);
 		}
-	
+
 		/* Make sure nothing went wrong. */
 		OpenGLException.checkOpenGLError(gl);
-		vbo_filled = true;
+
 
 	}
-	
+
 	public Texture3D getTexture3D() {
 		return blockDensityFunction.getTexture();
+	}
+
+	public void releaseGPUResources(GL2 gl) {
+		int buffers[] = new int[1];
+		buffers[0] = bufferHandle;
+		gl.glDeleteBuffers(1, buffers, 0);
+		this.blockDensityFunction.releaseGPUResources(gl);
+		texture_filled = false;
+		this.num_polygons = -1;
 	}
 
 	public void renderTerrain(GL2 gl) throws OpenGLException {
 
 		if (num_polygons > 0) {
-		gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, this.bufferHandle);
-		gl.glEnableVertexAttribArray(0);
-		//gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);
-		//gl.glDisableClientState(GL2.GL_NORMAL_ARRAY);
-		//gl.glDisableClientState(GL2.GL_TEXTURE_COORD_ARRAY);
-		gl.glVertexAttribPointer(0, 4, GL2.GL_FLOAT, false, 0, 0);
-		gl.glDrawArrays(GL2.GL_TRIANGLES, 0, 12 * num_polygons);
-		gl.glDisableVertexAttribArray(0);
-		gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, 0);
+			gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, this.bufferHandle);
+			gl.glEnableVertexAttribArray(0);
+			//gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);
+			//gl.glDisableClientState(GL2.GL_NORMAL_ARRAY);
+			//gl.glDisableClientState(GL2.GL_TEXTURE_COORD_ARRAY);
+			gl.glVertexAttribPointer(0, 4, GL2.GL_FLOAT, false, 0, 0);
+			gl.glDrawArrays(GL2.GL_TRIANGLES, 0, 12 * num_polygons);
+			gl.glDisableVertexAttribArray(0);
+			gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, 0);
 
 		}
 		/* Make sure nothing went wrong. */
@@ -240,16 +260,23 @@ public class TerrainBlockRenderer {
 
 	}
 	
+	public int getNumPolygons() {
+		return num_polygons;
+	}
+
+	public int getNumVoxels() {
+		return this.numVoxels;
+	}
 
 
 	public void testTexture(GL2 gl) throws OpenGLException {
 
 		gl.glPushMatrix();
-		gl.glTranslated(this.lowerCorner.x, this.lowerCorner.y, this.lowerCorner.z);
+		gl.glTranslated(this.minPoint.x, this.minPoint.y, this.minPoint.z);
 		double[][] verts = {{0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {1.0, 1.0, 0.0}, {1.0, 0.0, 0.0}};
 		gl.glBegin(GL2.GL_TRIANGLES);
 		for (int x = 0; x <= 3; x++) {
-			gl.glTexCoord3d(0.0, 0.0, 1.0);
+			gl.glTexCoord3d(0.5, 0.5, 1.0);
 			gl.glNormal3d(0.0, 0.0, 1.0);
 			gl.glVertex3d(0.5, 0.5, 1.0);
 			gl.glTexCoord3d(verts[x][0], verts[x][1], verts[x][2]);
@@ -260,16 +287,12 @@ public class TerrainBlockRenderer {
 			gl.glVertex3d(verts[(x+1)%4][0], verts[(x+1)%4][1], verts[(x+1)%4][2]);
 		}
 		gl.glEnd();
-		
+
 		gl.glPopMatrix();
-		
+
 		/* Make sure nothing went wrong. */
 		OpenGLException.checkOpenGLError(gl);
 
-	}
-	
-	public Vector3f getLowerCorner() {
-		return lowerCorner;
 	}
 
 }

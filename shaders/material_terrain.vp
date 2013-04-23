@@ -1,3 +1,5 @@
+#version 120
+#extension GL_EXT_gpu_shader4 : enable
 
 /* Pass eyespace position and normal, and texcoord, to the fragment shader. */
 varying vec3 EyespacePosition;
@@ -5,22 +7,44 @@ varying vec3 EyespaceNormal;
 
 uniform sampler3D DensityFunction;
 uniform vec3 LowerCorner;
+uniform float NumVoxels;
+uniform float BlockSize;
 
 void main()
 {
 
-	vec3 coordinate = gl_Vertex.xyz - LowerCorner;
-	vec3 gradient = vec3(0.0);
-	gradient.x = texture3D(DensityFunction, coordinate).x
-	 					- texture3D(DensityFunction, coordinate - vec3(1.0/32.0, 0.0, 0.0)).x;
-	 					
-	gradient.y = texture3D(DensityFunction, coordinate).x
-	 					- texture3D(DensityFunction, coordinate - vec3(0.0, 1.0/32.0, 0.0)).x;
-	 					
-	gradient.z = texture3D(DensityFunction, coordinate).x
-	 					- texture3D(DensityFunction, coordinate - vec3(0.0, 0.0, 1.0/32.0)).x;
+	vec3 coordinate = (gl_Vertex.xyz - LowerCorner) / BlockSize;
+	ivec3 voxel_coord = ivec3(0);
+	voxel_coord.x = int(coordinate.x * NumVoxels);
+	voxel_coord.y = int(coordinate.y * NumVoxels);
+	voxel_coord.z = int(coordinate.z * NumVoxels) + 1;
 	
-	gradient = normalize(gradient);
+	 
+	vec3 gradient = vec3(0.0);
+	if (voxel_coord.x == NumVoxels) {
+		gradient.x = - texelFetch3D(DensityFunction, voxel_coord, 0).x
+	 			+ texelFetch3D(DensityFunction, voxel_coord - ivec3(1, 0, 0), 0).x;
+	} else {
+		gradient.x = texelFetch3D(DensityFunction, voxel_coord, 0).x
+	 			- texelFetch3D(DensityFunction, voxel_coord + ivec3(1, 0, 0), 0).x;
+	}
+	if (voxel_coord.y == NumVoxels) {
+		gradient.y = - texelFetch3D(DensityFunction, voxel_coord, 0).x
+	 			+ texelFetch3D(DensityFunction, voxel_coord - ivec3(0, 1, 0), 0).x;
+	} else {
+		gradient.y = texelFetch3D(DensityFunction, voxel_coord, 0).x
+	 			- texelFetch3D(DensityFunction, voxel_coord + ivec3(0, 1, 0), 0).x;
+	}
+	if (voxel_coord.z == NumVoxels + 1) {
+		gradient.z = - texelFetch3D(DensityFunction, voxel_coord, 0).x
+	 			+ texelFetch3D(DensityFunction, voxel_coord - ivec3(0, 0, 1), 0).x;
+	} else {
+		gradient.z = texelFetch3D(DensityFunction, voxel_coord, 0).x
+	 			- texelFetch3D(DensityFunction, voxel_coord + ivec3(0, 0, 1), 0).x;
+	}			
+	 			
+	 					
+	gradient = normalize(-gradient);
 	
 	/* Standard vertex transform. */
 	gl_Position = ftransform();

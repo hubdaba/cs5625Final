@@ -1,7 +1,18 @@
 package cs5625.deferred.rendering;
 
-import javax.vecmath.Matrix4f;
+import geometry.Frustum;
+import geometry.SuperBlock;
 
+import java.util.LinkedList;
+import java.util.List;
+
+import javax.vecmath.Matrix3f;
+import javax.vecmath.Matrix4f;
+import javax.vecmath.Point3f;
+import javax.vecmath.Tuple3f;
+
+import cs5625.deferred.misc.Observer;
+import cs5625.deferred.misc.Observerable;
 import cs5625.deferred.scenegraph.SceneObject;
 
 /**
@@ -17,13 +28,24 @@ import cs5625.deferred.scenegraph.SceneObject;
  * @author Asher Dunn (ad488), John DeCorato (jd537)
  * @date 2012-03-23
  */
-public class Camera extends SceneObject
+public class Camera extends SceneObject implements Observerable, Frustum
 {
 	/* Perspective camera attributes. */
 	private float mFOV = 45.0f;
 	private float mNear = 0.1f;
 	private float mFar = 100.0f;
-	
+
+	private List<Observer> observers;
+	private List<Point3f> frontCorners;
+	private List<Point3f> backCorners;
+
+	public Camera() {
+		super();
+		frontCorners = new LinkedList<Point3f>();
+		backCorners = new LinkedList<Point3f>();
+		observers = new LinkedList<Observer>();
+	}
+
 	/**
 	 * Returns the camera field of view angle, in degrees.
 	 * 
@@ -75,20 +97,22 @@ public class Camera extends SceneObject
 	 */
 	public void setFar(float far)
 	{
+
 		mFar = far;
+		this.notifyObservers();
 	}
-	
-	
+
+
 	/**
 	 *  Get the view matrix that send points from world space into this camera local space 
 	 */
 	public Matrix4f getViewMatrix() {
 		Matrix4f mView = getWorldSpaceTransformationMatrix4f();
 		mView.invert();
-		
+
 		return mView;
 	}
-	
+
 	public Matrix4f getProjectionMatrix(float width, float height) {
 		float aspect = width/ height;
 		float s = (float) (1f / (Math.tan(mFOV * 0.5 * Math.PI / 180)));
@@ -97,5 +121,35 @@ public class Camera extends SceneObject
 				0f, s, 0f, 0f,
 				0f, 0f, -(mFar + mNear) / (mFar - mNear), -2 * mFar * mNear / (mFar - mNear),
 				0f, 0f, -1f, 0f);
+	}
+
+	@Override
+	public void addObserver(Observer o) {
+		observers.add(o);
+	}
+
+	@Override
+	public void notifyObservers() {
+		for (Observer observer : observers) {
+			observer.update(this);
+		}
+	}
+
+	@Override
+	public boolean inFrustum(SuperBlock block) {
+		for (Point3f corner : block.getCorners()) {
+			Point3f tempPoint = new Point3f(corner);
+			tempPoint.sub(mPosition);
+			this.getWorldSpaceRotationMatrix3f().transform(tempPoint);
+			if (tempPoint.z > -mNear || tempPoint.z < -mFar) { 
+				continue;
+			}
+			float vertDistance = (float)((-tempPoint.z * Math.tan(mFOV * Math.PI / 180.0)) / 2);
+			if (Math.abs(tempPoint.x) > vertDistance || Math.abs(tempPoint.y) > vertDistance) {
+				continue;
+			}
+			return true;
+		}
+		return false;
 	}
 }

@@ -1,12 +1,14 @@
 package cs5625.deferred.misc;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import javax.media.opengl.GL2;
 import javax.vecmath.Matrix3f;
 import javax.vecmath.Matrix4f;
 import javax.vecmath.Quat4f;
 import javax.vecmath.Tuple3f;
+import javax.vecmath.Vector3f;
 
 import cs5625.deferred.materials.Texture2D;
 
@@ -267,4 +269,12 @@ public class Util
 		/* Restore state. */
 		gl.glPopAttrib();
 	}
+	
+	public static void round(Tuple3f vector, int multiple) {
+		vector.x = ((int)Math.round(vector.x)) / multiple * multiple;
+		vector.y = ((int)Math.round(vector.x)) / multiple * multiple;
+		vector.z = ((int)Math.round(vector.x)) / multiple * multiple;
+	}
+	
+
 }

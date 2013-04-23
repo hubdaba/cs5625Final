@@ -88,6 +88,7 @@ public class DefaultSceneController extends SceneController
 		/* Set the camera's position so that it looks towards the origin. */
 		mCamera.setPosition(new Point3f(0.0f, 0.0f, mCameraRadius));
 		Util.rotateTuple(mCamera.getOrientation(), mCamera.getPosition());
+		mCamera.notifyObservers();
 	}
 
 	@Override

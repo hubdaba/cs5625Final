@@ -2,53 +2,61 @@
 #extension GL_EXT_gpu_shader4 : enable
 #extension GL_EXT_geometry_shader4 : enable
 
+uniform float NumVoxels;
+uniform float BlockSize;
 
 uniform sampler2D TriTable;
 uniform sampler3D DensityFunction;
 uniform vec3 LowerCorner;
 
 int triTableValue(int i, int j) {
-	return int(texelFetch2D(TriTable, ivec2(j, i), 0).a);
+	return int(round(texelFetch2D(TriTable, ivec2(j, i), 0).a));
 }
 
 vec3 cubePos (int i) {
     
     if (i == 0) return gl_PositionIn[0].xyz;
-    if (i == 1) return gl_PositionIn[0].xyz + vec3(0.0, 0.0, 1.0);
-    if (i == 2) return gl_PositionIn[0].xyz + vec3(1.0, 0.0, 1.0);
-    if (i == 3) return gl_PositionIn[0].xyz + vec3(1.0, 0.0, 0.0);
-    if (i == 4) return gl_PositionIn[0].xyz + vec3(0.0, 1.0, 0.0);
-    if (i == 5) return gl_PositionIn[0].xyz + vec3(0.0, 1.0, 1.0);
+    if (i == 1) return gl_PositionIn[0].xyz + vec3(1.0, 0.0, 0.0);
+    if (i == 2) return gl_PositionIn[0].xyz + vec3(1.0, 1.0, 0.0);
+    if (i == 3) return gl_PositionIn[0].xyz + vec3(0.0, 1.0, 0.0);
+    if (i == 4) return gl_PositionIn[0].xyz + vec3(0.0, 0.0, 1.0);
+    if (i == 5) return gl_PositionIn[0].xyz + vec3(1.0, 0.0, 1.0);
     if (i == 6) return gl_PositionIn[0].xyz + vec3(1.0, 1.0, 1.0);
-    if (i == 7) return gl_PositionIn[0].xyz + vec3(1.0, 1.0, 0.0);
+    if (i == 7) return gl_PositionIn[0].xyz + vec3(0.0, 1.0, 1.0);
 }
 
 float cubeVal(int i) {
   return texelFetch3D(DensityFunction, ivec3(
-  					int(cubePos(i).x),
-  					int(cubePos(i).y), 
-  					int(cubePos(i).z) + 1), 0).x;
-}
+  					round(cubePos(i).x),
+  					round(cubePos(i).y), 
+  					round(cubePos(i).z) + 1), 0).x;
+ }
 
 vec3 vertexInterp(vec3 v0, float l0, vec3 v1, float l1) {
-  return mix(v0/32.0 + LowerCorner, v1/32.0 + LowerCorner, -l0 / (l1 - l0));
-  //return mix(v0/32.0 + LowerCorner, v1/32.0 + LowerCorner, 0.5);
-}
+  return mix(BlockSize * v0/NumVoxels + LowerCorner, BlockSize * v1/NumVoxels + LowerCorner, (-l0) / (l1 - l0));
+ }
 
 void main() {
 
   int cubeindex = 0;
+  
+  float cubeVal0 = cubeVal(0);
+  float cubeVal1 = cubeVal(1);
+  float cubeVal2 = cubeVal(2);
+  float cubeVal3 = cubeVal(3);
+  float cubeVal4 = cubeVal(4);
+  float cubeVal5 = cubeVal(5);
+  float cubeVal6 = cubeVal(6);
+  float cubeVal7 = cubeVal(7);
 
-  if (cubeVal(0) <= 0.0) cubeindex = cubeindex | 1;
-  if (cubeVal(1) <= 0.0) cubeindex = cubeindex | 2;
-  if (cubeVal(2) <= 0.0) cubeindex = cubeindex | 4;
-  if (cubeVal(3) <= 0.0) cubeindex = cubeindex | 8;
-  if (cubeVal(4) <= 0.0) cubeindex = cubeindex | 16;
-  if (cubeVal(5) <= 0.0) cubeindex = cubeindex | 32;
-  if (cubeVal(6) <= 0.0) cubeindex = cubeindex | 64;
-  if (cubeVal(7) <= 0.0) cubeindex = cubeindex | 128;
-  
-  
+  cubeindex += int(cubeVal0 <= 0) * 1;
+  cubeindex += int(cubeVal1 <= 0) * 2;
+  cubeindex += int(cubeVal2 <= 0) * 4;
+  cubeindex += int(cubeVal3 <= 0) * 8;
+  cubeindex += int(cubeVal4 <= 0) * 16;
+  cubeindex += int(cubeVal5 <= 0) * 32;
+  cubeindex += int(cubeVal6 <= 0) * 64;
+  cubeindex += int(cubeVal7 <= 0) * 128;
   
   
   if (cubeindex == 0  || cubeindex == 255) {

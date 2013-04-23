@@ -1,17 +1,15 @@
 package cs5625.deferred.apps;
 
 import java.awt.Point;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
 
 import javax.vecmath.AxisAngle4f;
-import javax.vecmath.Color3f;
 import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
 
-import cs5625.deferred.materials.LambertianMaterial;
 import cs5625.deferred.misc.Util;
-import cs5625.deferred.scenegraph.Geometry;
 import cs5625.deferred.scenegraph.PointLight;
 import cs5625.deferred.scenegraph.TerrainRenderer;
 
@@ -45,6 +43,8 @@ public class TerrainSceneController extends SceneController
 	public void initializeScene()
 	{
 		terrainRenderer = new TerrainRenderer(false);
+		mCamera.setFar(50f);
+		mCamera.addObserver(terrainRenderer);
 		try
 		{
 			mSceneRoot.addChild(terrainRenderer);
@@ -86,8 +86,9 @@ public class TerrainSceneController extends SceneController
 		/* Set the camera's position so that it looks towards the origin. */
 		mCamera.setPosition(new Point3f(0.0f, 0.0f, mCameraRadius));
 		Util.rotateTuple(mCamera.getOrientation(), mCamera.getPosition());
+		mCamera.notifyObservers();
 	}
-
+	
 	@Override
 	public void mouseWheelMoved(MouseWheelEvent mouseWheel) {
 		/* Zoom in and out by the scroll wheel. */
