@@ -19,6 +19,7 @@ import cs5625.deferred.materials.Texture.Datatype;
 import cs5625.deferred.materials.Texture.Format;
 import cs5625.deferred.materials.UnshadedMaterial;
 import cs5625.deferred.misc.OpenGLException;
+import cs5625.deferred.misc.PerlinNoise;
 import cs5625.deferred.misc.ScenegraphException;
 import cs5625.deferred.misc.Util;
 import cs5625.deferred.scenegraph.Geometry;
@@ -635,6 +636,7 @@ public class Renderer
 		try
 		{
 			TerrainBlockRenderer.initializeTerrain(gl);
+			PerlinNoise.init(gl);
 			
 			
 			/* Load the ubershader. */

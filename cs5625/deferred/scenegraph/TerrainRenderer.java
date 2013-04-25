@@ -34,13 +34,13 @@ public class TerrainRenderer extends SceneObject implements Observer {
 	private boolean isTest;
 	public static float BLOCK_SIZE = 16;
 	
-	private List<TerrainBlockRenderer> nonemptyBlocks;
+	private List<QuadSampler> nonemptyBlocks;
 	
 	private SuperBlock renderArea;
 
 	public TerrainRenderer(boolean isTest) {
 		blocks = new HashMap<Point3f, TerrainBlockRenderer>();
-		nonemptyBlocks = new LinkedList<TerrainBlockRenderer>();
+		nonemptyBlocks = new LinkedList<QuadSampler>();
 		this.isTest = isTest;
 		if (isTest) {
 			terrainMaterial = new LambertianMaterial(new Color3f(1.0f, 0.0f, 0.0f));
@@ -70,16 +70,15 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		Util.round(cameraPos, 1);
 		renderArea = SuperBlock.midpointDistanceBlock(cameraPos, camera.getFar() + 1);
 		
-		List<TerrainBlockRenderer> blocksToRemove = new LinkedList<TerrainBlockRenderer>();
-		for (TerrainBlockRenderer nonemptyBlock : nonemptyBlocks) {
+		List<QuadSampler> blocksToRemove = new LinkedList<QuadSampler>();
+		for (QuadSampler nonemptyBlock : nonemptyBlocks) {
 			if (!renderArea.containsBlock(nonemptyBlock)) {
 				blocksToRemove.add(nonemptyBlock);
 			}
 		}
-		for (TerrainBlockRenderer blockToRemove : blocksToRemove) {
+		for (QuadSampler blockToRemove : blocksToRemove) {
 			nonemptyBlocks.remove(blockToRemove);
 			blocks.remove(blockToRemove.getMinPoint());
-			blockToRemove.releaseGPUResources(gl);
 		}
 		
 		List<QuadSampler> stack = new LinkedList<QuadSampler>();
@@ -113,7 +112,7 @@ public class TerrainRenderer extends SceneObject implements Observer {
 			}
 		}
 		for (QuadSampler sampler : stack) {
-			nonemptyBlocks.add(new TerrainBlockRenderer(gl, sampler.getMinPoint(), 10, sampler.getSideLength()));
+			nonemptyBlocks.add(new QuadSampler(sampler.getMinPoint(), sampler.getSideLength()));
 		}
 		
 	}
@@ -123,15 +122,17 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		if (!needSetup) {
 			return;
 		}
-		for (TerrainBlockRenderer nonemptyBlock : nonemptyBlocks) {
+		for (QuadSampler nonemptyBlock : nonemptyBlocks) {
 			Point3f lowerCorner = nonemptyBlock.getMinPoint();
 			
 			if (camera.inFrustum(nonemptyBlock)) {
 				if (!blocks.containsKey(lowerCorner)) {
-					blocks.put(lowerCorner, nonemptyBlock);
-					nonemptyBlock.fillTexture3D(gl);
+					TerrainBlockRenderer renderer = new TerrainBlockRenderer(gl, nonemptyBlock.getMinPoint(),
+							10, nonemptyBlock.getSideLength()); 
+					blocks.put(lowerCorner, renderer);
+					renderer.fillTexture3D(gl);
 					if (!isTest) {
-						nonemptyBlock.renderPolygons(gl);
+						renderer.renderPolygons(gl);
 					}
 				}
 			}

@@ -61,6 +61,7 @@ public class ExploreSceneController extends SceneController
 		try
 		{
 			mSceneRoot.addChild(terrainRenderer);
+			mCamera.addObserver(terrainRenderer);
 			/* Add an unattenuated point light to provide overall illumination. */
 			PointLight light = new PointLight();
 
@@ -123,6 +124,7 @@ public class ExploreSceneController extends SceneController
 		Util.rotateTuple(mCamera.getOrientation(), rightVector);
 		forwardVector.normalize();
 		rightVector.normalize();
+		mCamera.notifyObservers();
 	}
 
 	@Override

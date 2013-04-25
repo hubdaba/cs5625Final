@@ -1,5 +1,13 @@
 package cs5625.deferred.materials;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+
 import javax.media.opengl.GL2;
 
 import cs5625.deferred.misc.OpenGLException;
@@ -14,12 +22,16 @@ public class Texture3D extends Texture {
 	private int mDepth = -1;
 	private int mTarget = -1;
 	
-	public Texture3D(GL2 gl, Format format, Datatype datatype, int width, int height, int depth) throws OpenGLException {
+	public Texture3D(GL2 gl, Format format, Datatype datatype, int width, int height, int depth, Buffer buffer) throws OpenGLException {
 		super(gl);
-		initialize(gl, format, datatype, width, height, depth);
+		initialize(gl, format, datatype, width, height, depth, buffer);
 	}
 	
-	private void initialize(GL2 gl, Format format, Datatype datatype, int width, int height, int depth) throws OpenGLException {
+	public Texture3D(GL2 gl, Format format, Datatype datatype, int width, int height, int depth) throws OpenGLException {
+		this(gl, format, datatype, width, height, depth, null);
+	}
+	
+	private void initialize(GL2 gl, Format format, Datatype datatype, int width, int height, int depth, Buffer buffer) throws OpenGLException {
 		try {
 			int gltype = datatype.toGLtype();
 			int glformat = format.toGLformat();
@@ -37,7 +49,7 @@ public class Texture3D extends Texture {
 			gl.glGetIntegerv(GL2.GL_ACTIVE_TEXTURE, previousActive, 0);
 			gl.glActiveTexture(GL2.GL_TEXTURE0 + getBoundTextureUnit());
 			
-			gl.glTexImage3D(mTarget, 0, glinternalformat, width, height, depth, 0, glformat, gltype, null);
+			gl.glTexImage3D(mTarget, 0, glinternalformat, width, height, depth, 0, glformat, gltype, buffer);
 			gl.glTexParameteri(GL2.GL_TEXTURE_3D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_NEAREST);
 			gl.glTexParameteri(GL2.GL_TEXTURE_3D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_NEAREST);
 			gl.glTexParameteri(GL2.GL_TEXTURE_3D, GL2.GL_TEXTURE_WRAP_S, GL2.GL_CLAMP);
@@ -73,6 +85,7 @@ public class Texture3D extends Texture {
 		// TODO Auto-generated method stub
 		return mTarget;
 	}
+	
 	
 
 }

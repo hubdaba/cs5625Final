@@ -43,7 +43,7 @@ public class TerrainSceneController extends SceneController
 	public void initializeScene()
 	{
 		terrainRenderer = new TerrainRenderer(false);
-		mCamera.setFar(50f);
+		mCamera.setFar(70f);
 		mCamera.addObserver(terrainRenderer);
 		try
 		{

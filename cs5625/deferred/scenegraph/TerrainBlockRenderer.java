@@ -9,13 +9,12 @@ import java.nio.IntBuffer;
 import javax.media.opengl.GL2;
 import javax.media.opengl.glu.GLU;
 import javax.vecmath.Tuple3f;
-import javax.vecmath.Vector3f;
 
 import cs5625.deferred.materials.Texture;
 import cs5625.deferred.materials.Texture2D;
 import cs5625.deferred.materials.Texture3D;
 import cs5625.deferred.misc.OpenGLException;
-import cs5625.deferred.rendering.Camera;
+import cs5625.deferred.misc.PerlinNoise;
 import cs5625.deferred.rendering.FramebufferObject3D;
 import cs5625.deferred.rendering.McTables;
 import cs5625.deferred.rendering.ShaderProgram;
@@ -91,6 +90,10 @@ public class TerrainBlockRenderer extends SuperBlock {
 			mLowerCornerDensityUniformLocation = mDensityShader.getUniformLocation(gl, "LowerCorner");
 			mNumVoxelsDensityUniformLocation = mDensityShader.getUniformLocation(gl, "NumVoxels");
 			mBlockSizeDensityUniformLocation = mDensityShader.getUniformLocation(gl, "BlockSize");
+			
+			mDensityShader.bind(gl);
+			gl.glUniform1i(mDensityShader.getUniformLocation(gl, "PerlinNoise"), 0);
+			mDensityShader.unbind(gl);
 
 			mTerrainShader.bind(gl);
 			gl.glUniform1i(mTerrainShader.getUniformLocation(gl, "TriTable"), 1);
@@ -134,6 +137,7 @@ public class TerrainBlockRenderer extends SuperBlock {
 
 		for (int i = 0; i <= numVoxels + 1; i++) {
 			mDensityShader.bind(gl);
+			PerlinNoise.bind(gl, 0);
 			gl.glUniform1i(mLayerDensityUniformLocation, i);
 			gl.glUniform3f(mLowerCornerDensityUniformLocation, minPoint.x, minPoint.y, minPoint.z);
 			gl.glUniform1f(mNumVoxelsDensityUniformLocation, numVoxels);
@@ -147,6 +151,7 @@ public class TerrainBlockRenderer extends SuperBlock {
 			gl.glVertex3d(1, -1, 0);
 			gl.glVertex3d(1, 1, 0);
 			gl.glEnd();
+			PerlinNoise.unbind(gl);
 			mDensityShader.unbind(gl);
 		}
 
