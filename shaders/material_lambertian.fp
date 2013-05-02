@@ -50,10 +50,8 @@ void main()
    		float val = texture3D(DiffuseTexture3D, TexCoord3D).x;
    		if (val > 1.0) {
    			gl_FragData[0] = vec4(0.0, 0.0, 1.0, enc.x);
-   		} else if (val < -0.05) {
+   		} else if (val < 0.0) {
    			gl_FragData[0] = vec4(1.0, 0.0, 0.0, enc.x);
-   		} else if (val > -0.01 && val < 0.05) {
-   			gl_FragData[0] = vec4(0.0, 1.0, 1.0, enc.x);
    		} else {
    			gl_FragData[0] = vec4(0.0, 1.0, 0.0, enc.x);
    		}

@@ -60,6 +60,21 @@ public class SuperBlock {
 		midPoint.add(new Vector3f(sideLength/2, sideLength/2, sideLength/2));
 		return midPoint;
 	}
+	
+	public boolean containsPoint(Tuple3f point) {
+		Point3f maxPoint = new Point3f(minPoint);
+		maxPoint.add(new Point3f(sideLength, sideLength, sideLength));
+		if (point.x > maxPoint.x || point.x < minPoint.x) {
+			return false;
+		}
+		if (point.y > maxPoint.y || point.y < minPoint.y) {
+			return false;
+		}
+		if (point.z > maxPoint.z || point.z < minPoint.z) {
+			return false;
+		}
+		return true;
+	}
 
 	public boolean containsBlock(SuperBlock block) {
 		Point3f maxPoint = new Point3f(minPoint);

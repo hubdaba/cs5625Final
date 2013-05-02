@@ -5,9 +5,11 @@ import geometry.SuperBlock;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.media.opengl.GL2;
 import javax.vecmath.Color3f;
@@ -32,15 +34,16 @@ public class TerrainRenderer extends SceneObject implements Observer {
 	
 	private Material terrainMaterial;
 	private boolean isTest;
-	public static float BLOCK_SIZE = 16;
+	public static float BLOCK_SIZE = 32;
 	
-	private List<QuadSampler> nonemptyBlocks;
+	private Set<QuadSampler> nonemptyBlocks;
 	
 	private SuperBlock renderArea;
+	private Point3f cameraPos;
 
 	public TerrainRenderer(boolean isTest) {
 		blocks = new HashMap<Point3f, TerrainBlockRenderer>();
-		nonemptyBlocks = new LinkedList<QuadSampler>();
+		nonemptyBlocks = new HashSet<QuadSampler>();
 		this.isTest = isTest;
 		if (isTest) {
 			terrainMaterial = new LambertianMaterial(new Color3f(1.0f, 0.0f, 0.0f));
@@ -57,18 +60,15 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		}
 		
 		// if camera didn't move then don't change anything
-		if (renderArea != null && renderArea.getMidPoint().equals(camera.getPosition())) {
+		if (cameraPos != null && cameraPos.equals(camera.getPosition())) {
 			return;
 		}
-		SuperBlock prevRenderArea = null;
-		// if it was setup before, check the previous render area as to not re setup blocks
-		if (renderArea != null) {
-			prevRenderArea = renderArea;
-		}
 		
-		Point3f cameraPos = camera.getPosition();
-		Util.round(cameraPos, 1);
-		renderArea = SuperBlock.midpointDistanceBlock(cameraPos, camera.getFar() + 1);
+		Point3f cameraPosition = camera.getPosition();
+		Util.round(cameraPosition, 1);
+		renderArea = SuperBlock.midpointDistanceBlock(cameraPosition, camera.getFar() + 1);
+		cameraPos = cameraPosition;
+		
 		
 		List<QuadSampler> blocksToRemove = new LinkedList<QuadSampler>();
 		for (QuadSampler nonemptyBlock : nonemptyBlocks) {
@@ -78,41 +78,27 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		}
 		for (QuadSampler blockToRemove : blocksToRemove) {
 			nonemptyBlocks.remove(blockToRemove);
+			TerrainBlockRenderer block = blocks.get(blockToRemove.getMinPoint());
+			if (block != null) {
+				block.releaseGPUResources(gl);
+			}
 			blocks.remove(blockToRemove.getMinPoint());
 		}
 		
-		List<QuadSampler> stack = new LinkedList<QuadSampler>();
 		Tuple3f minPoint = renderArea.getMinPoint();
-
-		
 		int diameter = (int)Math.ceil(renderArea.getSideLength());
-		diameter = Integer.highestOneBit(diameter);
-		diameter = diameter << 1;
-		stack.add(new QuadSampler(new Vector3f(minPoint), diameter));
-		while (!stack.isEmpty() && !(stack.get(0).getSideLength() <= (BLOCK_SIZE + 0.1))) {
-			QuadSampler node = stack.remove(0);
-			if (node.hasPolygons()) {
-				float blockSize = node.getSideLength();
-				SuperBlock currBlock = new SuperBlock(node.getMinPoint(), blockSize);
-				List<Point3f> corners = currBlock.getCorners();
-				for (Point3f corner : corners) {
-					Point3f subBlockCorner = new Point3f(corner);
-					subBlockCorner.sub(currBlock.getMinPoint());
-					subBlockCorner.scale(0.5f);
-					subBlockCorner.add(currBlock.getMinPoint());
-					SuperBlock subBlock = new SuperBlock(subBlockCorner, blockSize / 2.0f);
-					if (prevRenderArea == null) {
-						stack.add(new QuadSampler(new Vector3f(subBlock.getMinPoint()), blockSize / 2.0f));
-					} else if (prevRenderArea.completelyContains(subBlock)) {
+		for (float x = minPoint.x; x < diameter + minPoint.x; x+=BLOCK_SIZE) {
+			for (float y = minPoint.y; y < diameter + minPoint.y; y+=BLOCK_SIZE) {
+				for (float z = minPoint.z; z < diameter + minPoint.z; z += BLOCK_SIZE) {
+					QuadSampler quad = new QuadSampler(new Vector3f(x, y, z), BLOCK_SIZE);
+					if (nonemptyBlocks.contains(quad)) {
 						continue;
-					} else {
-						stack.add(new QuadSampler(new Vector3f(subBlock.getMinPoint()), blockSize / 2.0f));
+					}
+					if (quad.hasPolygons()) {
+						nonemptyBlocks.add(quad);
 					}
 				}
 			}
-		}
-		for (QuadSampler sampler : stack) {
-			nonemptyBlocks.add(new QuadSampler(sampler.getMinPoint(), sampler.getSideLength()));
 		}
 		
 	}
@@ -128,7 +114,7 @@ public class TerrainRenderer extends SceneObject implements Observer {
 			if (camera.inFrustum(nonemptyBlock)) {
 				if (!blocks.containsKey(lowerCorner)) {
 					TerrainBlockRenderer renderer = new TerrainBlockRenderer(gl, nonemptyBlock.getMinPoint(),
-							10, nonemptyBlock.getSideLength()); 
+							20, nonemptyBlock.getSideLength()); 
 					blocks.put(lowerCorner, renderer);
 					renderer.fillTexture3D(gl);
 					if (!isTest) {
@@ -136,11 +122,11 @@ public class TerrainRenderer extends SceneObject implements Observer {
 					}
 				}
 			}
-
 		}
 	}
 
 	public void renderTerrain(GL2 gl) throws OpenGLException {
+		System.out.println(blocks.size());
 		for (TerrainBlockRenderer block : blocks.values()) {
 			if (!isTest) {
 				((TerrainMaterial) terrainMaterial).setDensityFunction(block.getTexture3D());

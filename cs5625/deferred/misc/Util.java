@@ -276,5 +276,11 @@ public class Util
 		vector.z = ((int)Math.round(vector.x)) / multiple * multiple;
 	}
 	
+	public static void floor(Tuple3f vector) {
+		vector.x = (float) Math.floor(vector.x);
+		vector.y = (float) Math.floor(vector.y);
+		vector.z = (float) Math.floor(vector.z);
+	}
+	
 
 }

@@ -18,6 +18,7 @@ import cs5625.deferred.misc.PerlinNoise;
 import cs5625.deferred.rendering.FramebufferObject3D;
 import cs5625.deferred.rendering.McTables;
 import cs5625.deferred.rendering.ShaderProgram;
+import cs5625.deferred.rendering.VertexBuffer;
 
 public class TerrainBlockRenderer extends SuperBlock {
 	public int numVoxels;
@@ -40,8 +41,9 @@ public class TerrainBlockRenderer extends SuperBlock {
 
 	private static Texture2D triTableTextureHandle;
 
-	private int bufferHandle;
+	private VertexBuffer buffer;
 
+	private boolean needSetup = true;
 	private int num_polygons = -1;
 	private boolean texture_filled = false;
 
@@ -49,18 +51,7 @@ public class TerrainBlockRenderer extends SuperBlock {
 	public TerrainBlockRenderer(GL2 gl, Tuple3f minPoint, int numVoxels, float sideLength) throws OpenGLException, IOException {
 		super(minPoint, sideLength);
 		this.numVoxels = numVoxels;
-		blockDensityFunction = new FramebufferObject3D(gl, Texture3D.Format.RGBA,
-				Texture3D.Datatype.FLOAT16, numVoxels + 1, numVoxels + 1, numVoxels + 2);
-
-
-
-		int[] buffer = new int[1];
-
-		gl.glGenBuffers(1, buffer, 0);
-		gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, buffer[0]);
-		gl.glBufferData(GL2.GL_ARRAY_BUFFER, 4L * (long)Math.pow(numVoxels, 3) * 15L * 8L, null, GL2.GL_STREAM_DRAW);
-		bufferHandle = buffer[0];
-		gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, 0);
+		setup(gl);
 	}
 
 	public static void initializeTerrain(GL2 gl) throws OpenGLException, IOException {
@@ -92,7 +83,8 @@ public class TerrainBlockRenderer extends SuperBlock {
 			mBlockSizeDensityUniformLocation = mDensityShader.getUniformLocation(gl, "BlockSize");
 			
 			mDensityShader.bind(gl);
-			gl.glUniform1i(mDensityShader.getUniformLocation(gl, "PerlinNoise"), 0);
+			gl.glUniform1i(mDensityShader.getUniformLocation(gl, "Permutation"), 0);
+			gl.glUniform1i(mDensityShader.getUniformLocation(gl, "Gradient"), 1);
 			mDensityShader.unbind(gl);
 
 			mTerrainShader.bind(gl);
@@ -137,7 +129,7 @@ public class TerrainBlockRenderer extends SuperBlock {
 
 		for (int i = 0; i <= numVoxels + 1; i++) {
 			mDensityShader.bind(gl);
-			PerlinNoise.bind(gl, 0);
+			PerlinNoise.bind(gl, 0, 1);
 			gl.glUniform1i(mLayerDensityUniformLocation, i);
 			gl.glUniform3f(mLowerCornerDensityUniformLocation, minPoint.x, minPoint.y, minPoint.z);
 			gl.glUniform1f(mNumVoxelsDensityUniformLocation, numVoxels);
@@ -193,7 +185,7 @@ public class TerrainBlockRenderer extends SuperBlock {
 		gl.glUniform1f(mTerrainBlockSizeUniformLocation, sideLength);
 
 		gl.glEnable(GL2.GL_RASTERIZER_DISCARD);
-		gl.glBindBufferBase(GL2.GL_TRANSFORM_FEEDBACK_BUFFER, 0, bufferHandle);
+		buffer.bindTransformFeedback(gl);
 		gl.glBeginQuery(GL2.GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN, queryHandle);
 		gl.glBeginTransformFeedback(GL2.GL_TRIANGLES);	
 
@@ -213,7 +205,7 @@ public class TerrainBlockRenderer extends SuperBlock {
 		gl.glEndTransformFeedback();
 		OpenGLException.checkOpenGLError(gl);
 		gl.glEndQuery(GL2.GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN);
-		gl.glBindBufferBase(GL2.GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
+		buffer.bindTransformFeedback(gl);
 		gl.glDisable(GL2.GL_RASTERIZER_DISCARD);
 		triTableTextureHandle.unbind(gl);
 		this.blockDensityFunction.getTexture().unbind(gl);
@@ -238,26 +230,40 @@ public class TerrainBlockRenderer extends SuperBlock {
 	}
 
 	public void releaseGPUResources(GL2 gl) {
-		int buffers[] = new int[1];
-		buffers[0] = bufferHandle;
-		gl.glDeleteBuffers(1, buffers, 0);
+		if (!needSetup) {
+			return;
+		}
+		buffer.releaseGPUResources(gl);
+		buffer = null;
 		this.blockDensityFunction.releaseGPUResources(gl);
 		texture_filled = false;
 		this.num_polygons = -1;
+		this.needSetup = true;
+	}
+	
+	public void setup(GL2 gl) throws OpenGLException {
+		buffer = new VertexBuffer(gl, this.numVoxels);
+		blockDensityFunction = new FramebufferObject3D(gl, Texture3D.Format.RGBA,
+				Texture3D.Datatype.FLOAT16, numVoxels + 1, numVoxels + 1, numVoxels + 2);
+
+
+		
+		
+		this.needSetup = false;
 	}
 
 	public void renderTerrain(GL2 gl) throws OpenGLException {
-
 		if (num_polygons > 0) {
-			gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, this.bufferHandle);
+			if (needSetup) {
+				System.out.println("asdfehhhhr");
+				System.exit(0);
+			} 
+			buffer.bind(gl);
 			gl.glEnableVertexAttribArray(0);
-			//gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);
-			//gl.glDisableClientState(GL2.GL_NORMAL_ARRAY);
-			//gl.glDisableClientState(GL2.GL_TEXTURE_COORD_ARRAY);
 			gl.glVertexAttribPointer(0, 4, GL2.GL_FLOAT, false, 0, 0);
 			gl.glDrawArrays(GL2.GL_TRIANGLES, 0, 12 * num_polygons);
 			gl.glDisableVertexAttribArray(0);
-			gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, 0);
+			buffer.unbind(gl);
 
 		}
 		/* Make sure nothing went wrong. */

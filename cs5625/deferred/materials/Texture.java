@@ -159,6 +159,24 @@ public abstract class Texture implements OpenGLResourceObject
 		}
 	}
 	
+	public enum TextureWrapCoordinate
+	{ 
+		S,
+		T,
+		R;
+		
+		public int toGLCoordinate() throws OpenGLException
+		{
+			switch (this)
+			{
+			case S: return GL2.GL_TEXTURE_WRAP_S;
+			case T: return GL2.GL_TEXTURE_WRAP_T;
+			case R: return GL2.GL_TEXTURE_WRAP_R;
+			}
+			throw new OpenGLException("Unknown coordinate enum : " + this + ".");
+		}
+	}
+	
 	/**
 	 * Private variables common to all types of textures.
 	 */
@@ -318,7 +336,7 @@ public abstract class Texture implements OpenGLResourceObject
 	/**
 	 * Sets the texture's wrap mode (for all coordinates).
 	 */
-	public void setWrapMode(GL2 gl, WrapMode mode) throws OpenGLException
+	public void setWrapModeAll(GL2 gl, WrapMode mode) throws OpenGLException
 	{
 		int gl_mode = mWrapMode.toGLmode();
 		int target = getTextureTarget();
@@ -338,6 +356,34 @@ public abstract class Texture implements OpenGLResourceObject
 		gl.glTexParameteri(target, GL2.GL_TEXTURE_WRAP_T, gl_mode);
 		gl.glTexParameteri(target, GL2.GL_TEXTURE_WRAP_R, gl_mode);
 		
+		gl.glActiveTexture(previousActive[0]);
+		
+		if (!wasBound)
+		{
+			unbind(gl);
+		}
+	}
+	/**
+	 * Sets the texture's wrap mode (for one coordinates).
+	 */
+	public void setWrapModeOne(GL2 gl, WrapMode mode, TextureWrapCoordinate coord) throws OpenGLException
+	{
+		int gl_mode = mWrapMode.toGLmode();
+		int gl_coord = coord.toGLCoordinate();
+		int target = getTextureTarget();
+		boolean wasBound = isBound();
+		
+		int previousActive[] = new int[1];
+		gl.glGetIntegerv(GL2.GL_ACTIVE_TEXTURE, previousActive, 0);
+		
+		if (!wasBound)
+		{
+			bind(gl, 0);
+		}		
+		
+		gl.glActiveTexture(GL2.GL_TEXTURE0 + getBoundTextureUnit());
+		
+		gl.glTexParameteri(target, gl_coord, gl_mode);
 		gl.glActiveTexture(previousActive[0]);
 		
 		if (!wasBound)
