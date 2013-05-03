@@ -3,6 +3,9 @@ uniform int Layer;
 uniform float NumVoxels;
 uniform float BlockSize;
 
+uniform int NumExplosions;
+uniform vec3 ExplosionPositions[5];
+
 uniform sampler2D Permutation;
 uniform sampler2D Gradient;
 

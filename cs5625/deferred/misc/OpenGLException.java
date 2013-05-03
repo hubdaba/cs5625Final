@@ -35,6 +35,7 @@ public class OpenGLException extends Exception
 	public OpenGLException(String arg0)
 	{
 		super(arg0);
+		
 	}
 
 	/** 

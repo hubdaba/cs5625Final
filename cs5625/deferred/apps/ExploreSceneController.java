@@ -1,18 +1,22 @@
 package cs5625.deferred.apps;
 
+import geometry.Explosion;
+import geometry.ExplosionHandler;
+
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseWheelEvent;
 
 import javax.swing.Timer;
-import javax.vecmath.*;
+import javax.vecmath.AxisAngle4f;
+import javax.vecmath.Point3f;
+import javax.vecmath.Quat4f;
+import javax.vecmath.Vector2f;
+import javax.vecmath.Vector3f;
 
-import cs5625.deferred.materials.LambertianMaterial;
 import cs5625.deferred.misc.Util;
-import cs5625.deferred.scenegraph.Geometry;
 import cs5625.deferred.scenegraph.PointLight;
 import cs5625.deferred.scenegraph.TerrainRenderer;
 
@@ -33,6 +37,9 @@ import cs5625.deferred.scenegraph.TerrainRenderer;
  */
 public class ExploreSceneController extends SceneController
 {
+	
+	public static float EXPLOSION_RADIUS = 30.0f;
+	
 	/* Keeps track of camera's orbit position. Latitude and longitude are in degrees. */
 	private float mCameraLongitude = 50.0f, mCameraLatitude = -40.0f;
 	private Point3f mCameraPosition = new Point3f(12f, 12f, 12f);
@@ -51,17 +58,20 @@ public class ExploreSceneController extends SceneController
 	private Point mLastMouseDrag;
 
 	private TerrainRenderer terrainRenderer;
+	private ExplosionHandler explosionHandler;
 
 	private int millisec = 40;
 
 	@Override
 	public void initializeScene()
 	{
-		terrainRenderer = new TerrainRenderer(false);
+		explosionHandler = new ExplosionHandler();
+		terrainRenderer = new TerrainRenderer(false, explosionHandler);
 		try
 		{
 			mSceneRoot.addChild(terrainRenderer);
 			mCamera.addObserver(terrainRenderer);
+			explosionHandler.addObserver(terrainRenderer);
 			/* Add an unattenuated point light to provide overall illumination. */
 			PointLight light = new PointLight();
 
@@ -164,10 +174,22 @@ public class ExploreSceneController extends SceneController
 			mCameraLatitude = 89.0f * Math.signum(mCameraLatitude);
 		}
 	}
+	
+	public void keyTyped(KeyEvent key) {
+		super.keyTyped(key);
+		char c = key.getKeyChar();
+		if (c == ' ') {
+			System.out.println("explosion");
+			explosionHandler.addExplosion(
+						new Explosion(mCamera.getPosition(), EXPLOSION_RADIUS));
+		}
+	}
+	
+	
 
 	public void keyPressed(KeyEvent key)
 	{
-		super.keyPressed(key);
+		super.keyPressed(key);	
 		switch (key.getKeyCode()) {
 		case KeyEvent.VK_UP:
 			targetVelocity.y = maxSpeed;
@@ -182,6 +204,7 @@ public class ExploreSceneController extends SceneController
 			targetVelocity.x = +maxSpeed;
 			break;
 		}
+		
 	}
 	public void keyReleased(KeyEvent key)
 	{

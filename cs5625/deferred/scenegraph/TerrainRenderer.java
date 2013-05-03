@@ -1,5 +1,7 @@
 package cs5625.deferred.scenegraph;
 
+import geometry.Explosion;
+import geometry.ExplosionHandler;
 import geometry.QuadSampler;
 import geometry.SuperBlock;
 
@@ -10,6 +12,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import javax.media.opengl.GL2;
 import javax.vecmath.Color3f;
@@ -37,13 +41,19 @@ public class TerrainRenderer extends SceneObject implements Observer {
 	public static float BLOCK_SIZE = 32;
 	
 	private Set<QuadSampler> nonemptyBlocks;
+	private BlockingQueue<QuadSampler> explodedBlocks;
 	
 	private SuperBlock renderArea;
 	private Point3f cameraPos;
+	
+	private ExplosionHandler explosionHandler;
 
-	public TerrainRenderer(boolean isTest) {
+	public TerrainRenderer(boolean isTest, ExplosionHandler explosionHandler) {
 		blocks = new HashMap<Point3f, TerrainBlockRenderer>();
+		this.explosionHandler = explosionHandler;
 		nonemptyBlocks = new HashSet<QuadSampler>();
+		explodedBlocks = new LinkedBlockingQueue<QuadSampler>();
+		
 		this.isTest = isTest;
 		if (isTest) {
 			terrainMaterial = new LambertianMaterial(new Color3f(1.0f, 0.0f, 0.0f));
@@ -69,10 +79,13 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		renderArea = SuperBlock.midpointDistanceBlock(cameraPosition, camera.getFar() + 1);
 		cameraPos = cameraPosition;
 		
-		
+		Set<QuadSampler> lastExplodedBlocks = new HashSet<QuadSampler>();
+		explodedBlocks.drainTo(lastExplodedBlocks);
 		List<QuadSampler> blocksToRemove = new LinkedList<QuadSampler>();
 		for (QuadSampler nonemptyBlock : nonemptyBlocks) {
 			if (!renderArea.containsBlock(nonemptyBlock)) {
+				blocksToRemove.add(nonemptyBlock);
+			} else if (lastExplodedBlocks.contains(nonemptyBlock)) {
 				blocksToRemove.add(nonemptyBlock);
 			}
 		}
@@ -86,7 +99,10 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		}
 		
 		Tuple3f minPoint = renderArea.getMinPoint();
-		int diameter = (int)Math.ceil(renderArea.getSideLength());
+		minPoint.x = (float) (Math.floor(minPoint.x/BLOCK_SIZE) * BLOCK_SIZE);
+		minPoint.y = (float) (Math.floor(minPoint.y/BLOCK_SIZE) * BLOCK_SIZE);
+		minPoint.z = (float) (Math.floor(minPoint.z/BLOCK_SIZE) * BLOCK_SIZE);
+		int diameter = (int)(Math.ceil(renderArea.getSideLength()/BLOCK_SIZE) * BLOCK_SIZE);
 		for (float x = minPoint.x; x < diameter + minPoint.x; x+=BLOCK_SIZE) {
 			for (float y = minPoint.y; y < diameter + minPoint.y; y+=BLOCK_SIZE) {
 				for (float z = minPoint.z; z < diameter + minPoint.z; z += BLOCK_SIZE) {
@@ -114,11 +130,14 @@ public class TerrainRenderer extends SceneObject implements Observer {
 			if (camera.inFrustum(nonemptyBlock)) {
 				if (!blocks.containsKey(lowerCorner)) {
 					TerrainBlockRenderer renderer = new TerrainBlockRenderer(gl, nonemptyBlock.getMinPoint(),
-							20, nonemptyBlock.getSideLength()); 
+							20, nonemptyBlock.getSideLength(), 
+							explosionHandler.getExplosions(nonemptyBlock)); 
 					blocks.put(lowerCorner, renderer);
 					renderer.fillTexture3D(gl);
+					OpenGLException.checkOpenGLError(gl);
 					if (!isTest) {
 						renderer.renderPolygons(gl);
+						OpenGLException.checkOpenGLError(gl);
 					}
 				}
 			}
@@ -126,8 +145,13 @@ public class TerrainRenderer extends SceneObject implements Observer {
 	}
 
 	public void renderTerrain(GL2 gl) throws OpenGLException {
-		System.out.println(blocks.size());
 		for (TerrainBlockRenderer block : blocks.values()) {
+			if (block.needUpdate()) {
+				block.releaseGPUResources(gl);
+				block.setup(gl);
+				block.fillTexture3D(gl);
+				block.renderPolygons(gl);
+			}
 			if (!isTest) {
 				((TerrainMaterial) terrainMaterial).setDensityFunction(block.getTexture3D());
 				((TerrainMaterial) terrainMaterial).setLowerCorner(block.getMinPoint());
@@ -151,8 +175,24 @@ public class TerrainRenderer extends SceneObject implements Observer {
 
 	@Override
 	public void update(Observerable o) {
-		needSetup = true;
-		
+		this.update(o, null);
+	}
+	
+
+	
+	@Override
+	public void update(Observerable o, Object obj) {
+		this.needSetup = true;
+		if (obj == null) {
+			return;
+		}
+		if (obj instanceof Explosion) {
+			Explosion explosion = (Explosion)obj;
+			List<QuadSampler> affectedBlocks = explosion.getAffectedBlocks(BLOCK_SIZE);
+			for (QuadSampler affectedBlock : affectedBlocks) {
+				explodedBlocks.offer(affectedBlock);
+			}
+		}
 	}
 
 }

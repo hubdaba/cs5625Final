@@ -128,7 +128,6 @@ public class Camera extends SceneObject implements Observerable, Frustum
 		observers.add(o);
 	}
 
-	@Override
 	public void notifyObservers() {
 		for (Observer observer : observers) {
 			observer.update(this);

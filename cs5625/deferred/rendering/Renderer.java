@@ -381,22 +381,10 @@ public class Renderer
 		gl.glRotatef(orientation.angle * 180.0f / (float)Math.PI, orientation.x, orientation.y, orientation.z);
 		gl.glScalef(scale, scale, scale);
 		if (obj instanceof TerrainRenderer) {
-			System.out.println("Starting rendering terrain.");
-			long setupTime;
-			long polygonTime;
-			long renderTime;
-			long terrainStart = System.currentTimeMillis();
 			((TerrainRenderer) obj).setupPosition(gl, camera);
-			setupTime = System.currentTimeMillis() - terrainStart;
 			((TerrainRenderer) obj).renderPolygons(gl, camera);
-			polygonTime = System.currentTimeMillis() - terrainStart - setupTime;
 			((TerrainRenderer) obj).getMaterial().retrieveShader(gl, mShaderCache);
 			((TerrainRenderer) obj).renderTerrain(gl);
-			long currentTime = System.currentTimeMillis();
-			renderTime = currentTime - terrainStart - polygonTime - setupTime;
-			long duration = System.currentTimeMillis() - terrainStart;
-			System.out.println(String.format("Finished rendering terrain. Time took: %d ms\n", duration));
-			System.out.println(String.format("\tsetup time: %d ms\n\tpolygon time %d ms\n\trender time %d ms\n", setupTime, polygonTime, renderTime));
 		}
 		
 		/* Render this object as appropriate for its type. */
