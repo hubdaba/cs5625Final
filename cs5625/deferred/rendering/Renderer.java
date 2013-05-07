@@ -10,6 +10,7 @@ import javax.media.opengl.GLAutoDrawable;
 import javax.media.opengl.glu.GLU;
 import javax.vecmath.AxisAngle4f;
 import javax.vecmath.Color3f;
+import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
 import javax.vecmath.Vector3f;
@@ -22,6 +23,7 @@ import cs5625.deferred.misc.OpenGLException;
 import cs5625.deferred.misc.PerlinNoise;
 import cs5625.deferred.misc.ScenegraphException;
 import cs5625.deferred.misc.Util;
+import cs5625.deferred.particles.SmokeSystem;
 import cs5625.deferred.scenegraph.Geometry;
 import cs5625.deferred.scenegraph.Light;
 import cs5625.deferred.scenegraph.Mesh;
@@ -66,8 +68,9 @@ public class Renderer
 	protected final int GBuffer_MaterialIndex2 = 3;
 	protected final int GBuffer_GradientsIndex = 4;
 	protected final int GBuffer_SSAOIndex = 5;
-	protected final int GBuffer_FinalSceneIndex = 6;
-	protected final int GBuffer_Count = 7;
+	protected final int GBuffer_ParticleIndex = 6;
+	protected final int GBuffer_FinalSceneIndex = 7;
+	protected final int GBuffer_Count = 8;
 	
 	/* The index of the texture to preview in GBufferFBO, or -1 for no preview. */
 	protected int mPreviewIndex = -1;
@@ -104,6 +107,17 @@ public class Renderer
 	private int mMaxLightsInUberShader;
 	
 	
+	/*
+	 * Shaders and parameters for the different particle effects.  
+	 * It was not straightforward to abstract these away to some other
+	 * class- there is too much overlap, so here it is, hardcoded in the 
+	 * renderer.
+	 */
+	ShaderProgram mSmokeShader;
+	private int mSmokeEnableSoftParticlesLocation = -1, mSmokeNearPlaneLocation = -1, mSmokeTauLocation = -1;
+	private int mSmokeEnableSoftParticles = 1;
+	
+	
 	
 	/**
 	 * Renders a single frame of the scene. This is the main method of the Renderer class.
@@ -127,6 +141,10 @@ public class Renderer
 			
 			/* 1. Fill the gbuffer given this scene and camera. */ 
 			fillGBuffer(gl, sceneRoot, camera);
+			
+			/* 2. Fill the particle buffer, utilizing the depth values aquired by filling
+			 * the GBuffer */
+			fillSmokeBuffer(gl, sceneRoot, camera);
 			
 			/* 3. Apply deferred lighting to the g-buffer. At this point, the opaque scene has been rendered. */
 			lightGBuffer(gl, camera);
@@ -173,6 +191,7 @@ public class Renderer
 			mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, 1);
 			mGBufferFBO.getColorTexture(GBuffer_MaterialIndex1).bind(gl, 2);
 			mGBufferFBO.getColorTexture(GBuffer_MaterialIndex2).bind(gl, 3);
+			mGBufferFBO.getColorTexture(GBuffer_ParticleIndex).bind(gl, 4);
 			
 			/* Set the vis mode using the preview index. */
 			mVisShader.bind(gl);
@@ -187,6 +206,7 @@ public class Renderer
 			mGBufferFBO.getColorTexture(GBuffer_PositionIndex).unbind(gl);
 			mGBufferFBO.getColorTexture(GBuffer_MaterialIndex1).unbind(gl);
 			mGBufferFBO.getColorTexture(GBuffer_MaterialIndex2).unbind(gl);
+			mGBufferFBO.getColorTexture(GBuffer_ParticleIndex).unbind(gl);
 
 			/* Restore attributes (blending and depth-testing) to as they were before. */
 			gl.glPopAttrib();
@@ -258,6 +278,105 @@ public class Renderer
 		
 		
 		/* Check for errors after rendering, to help isolate. */
+		OpenGLException.checkOpenGLError(gl);
+	}
+	
+	public void fillSmokeBuffer(GL2 gl, SceneObject sceneRoot, Camera camera) throws OpenGLException {
+		// Bind the target particle buffer
+		// Pass through camera parameters
+		// Render the particle systems in the scene graph
+		
+		/* Bind the SSAO buffer as output. */
+		mGBufferFBO.bindOne(gl, GBuffer_SSAOIndex);
+
+		gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+		gl.glClear(GL2.GL_COLOR_BUFFER_BIT);
+		
+		/* Save state before we disable depth testing for blitting. */
+		gl.glPushAttrib(GL2.GL_ENABLE_BIT);
+		
+		/* Disable depth test and blend, since we just want to replace the contents of the framebuffer.
+		 * Since we are rendering an opaque fullscreen quad here, we don't bother clearing the buffer
+		 * first. */
+		gl.glDisable(GL2.GL_DEPTH_TEST);
+		gl.glDisable(GL2.GL_BLEND);
+		
+		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).bind(gl, 0);
+		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, 1);
+		
+		/* We need to disable interpolation on the g-buffer, otherwise we get ringing artifacts!
+		 * This won't reduce the quality of our ssao because the g-buffer is full resolution. */
+		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).enableInterpolation(gl, false);
+		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).enableInterpolation(gl, false);
+		
+		/* Bind the SSAO shader and update the uniforms. */
+		mSmokeShader.bind(gl);
+		
+		gl.glUniform1i(mSmokeEnableSoftParticlesLocation, mSmokeEnableSoftParticles);		// TODO: FIND THESE VALUES
+		
+		
+		/* Render. */
+		drawSmokeSystem(gl, sceneRoot, camera);
+		
+		/* Unbind everything. */
+		mSmokeShader.unbind(gl);
+		
+		/* Re-enable interpolation. */
+		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).enableInterpolation(gl, true);
+		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).enableInterpolation(gl, true);
+		
+		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).unbind(gl);
+		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).unbind(gl);
+
+		mGBufferFBO.unbind(gl);
+
+		/* Restore attributes (blending and depth-testing) to as they were before. */
+		gl.glPopAttrib();
+	}
+	public void drawSmokeSystem(GL2 gl, SceneObject obj, Camera camera) throws OpenGLException {
+		/* If the object is not visible, we skip the rendition of it and all its children */
+		if (!obj.isVisible()) {
+			return;
+		}
+		
+		/* Save matrix before applying this object's transformation. */
+		gl.glPushMatrix();
+		
+		/* Get this object's transformation. */
+		float scale = obj.getScale();
+		Point3f position = obj.getPosition();
+		AxisAngle4f orientation = new AxisAngle4f();
+		orientation.set(obj.getOrientation());
+		
+		/* Apply this object's transformation. */
+		gl.glTranslatef(position.x, position.y, position.z);
+		gl.glRotatef(orientation.angle * 180.0f / (float)Math.PI, orientation.x, orientation.y, orientation.z);
+		gl.glScalef(scale, scale, scale);
+		
+		/* Render this object as appropriate for its type. */
+		if (obj instanceof SmokeSystem)
+		{
+			// Render smoke particles
+			bindAttributes(gl, mSmokeShader, (SmokeSystem)obj);
+
+			gl.glUniform1f(mSmokeNearPlaneLocation, camera.getNear());
+			gl.glUniform1f(mSmokeTauLocation, ((SmokeSystem)obj).getTau());
+			gl.glBegin(GL2.GL_POINTS);
+			for (Point3d r : ((SmokeSystem)obj).getParticlePositions()) {
+				gl.glVertex3d(r.x, r.y, r.z);
+			}
+			gl.glEnd();
+			System.out.println("ERH MA GERD- PERTICLES!!!--------------------------------------------------------------");
+		}
+		
+		/* Render this object's children. */
+		for (SceneObject child : obj.getChildren())
+		{
+			drawSmokeSystem(gl, child, camera);
+		}
+		
+		/* Restore transformation matrix and check for errors. */
+		gl.glPopMatrix();
 		OpenGLException.checkOpenGLError(gl);
 	}
 	
@@ -535,11 +654,15 @@ public class Renderer
 	 *        
 	 * @throws OpenGLException If a required attribute isn't supplied by the mesh.
 	 */
-	void bindRequiredMeshAttributes(GL2 gl, Mesh mesh) throws OpenGLException
-	{
+	void bindRequiredMeshAttributes(GL2 gl, Mesh mesh) throws OpenGLException {
 		ShaderProgram shader = mesh.getMaterial().getShaderProgram();
-		
-		for (String attrib : mesh.getMaterial().getRequiredVertexAttributes())
+		bindAttributes(gl, shader, mesh);
+	}
+	void bindAttributes(GL2 gl, ShaderProgram shader, Attributable att) throws OpenGLException
+	{
+		HashMap<String, FloatBuffer> attribs = att.getVertexAttribData();
+		System.out.println("There are so many required attributes: "+att.getRequiredVertexAttributes().length);
+		for (String attrib : att.getRequiredVertexAttributes())
 		{
 			/* Ignore attributes which aren't actually used in the shader. */
 			int location = shader.getAttribLocation(gl, attrib);
@@ -549,7 +672,7 @@ public class Renderer
 			}
 			
 			/* Get data for this attribute from the mesh. */
-			FloatBuffer attribData = mesh.vertexAttribData.get(attrib);
+			FloatBuffer attribData = attribs.get(attrib);
 			
 			/* This attribute is required, so throw an exception if the mesh doesn't supply it. */
 			if (attribData == null)
@@ -559,7 +682,12 @@ public class Renderer
 			else
 			{
 				gl.glEnableVertexAttribArray(location);
-				gl.glVertexAttribPointer(location, attribData.capacity() / mesh.getVertexCount(), GL2.GL_FLOAT, false, 0, attribData);
+				gl.glVertexAttribPointer(location, attribData.capacity() / att.getVertexCount(), GL2.GL_FLOAT, false, 0, attribData);
+			}
+
+			System.out.println("One attribute is: "+attrib);
+			if (attrib.equals("radius")) {
+				System.out.println("Adding a radius");
 			}
 		}
 	}
@@ -650,6 +778,7 @@ public class Renderer
 			gl.glUniform1i(mUberShader.getUniformLocation(gl, "MaterialParams2Buffer"), 3);
 			gl.glUniform1i(mUberShader.getUniformLocation(gl, "SilhouetteBuffer"), 4);
 			gl.glUniform1i(mUberShader.getUniformLocation(gl, "SSAOBuffer"), 5);
+			gl.glUniform1i(mUberShader.getUniformLocation(gl, "ParticleBuffer"), 6);
 			gl.glUniform3f(mUberShader.getUniformLocation(gl, "SkyColor"), 0.3f, 0.3f, 0.3f);
 			mUberShader.unbind(gl);			
 			
@@ -681,6 +810,20 @@ public class Renderer
 			/* Load the material used to render mesh edges (e.g. creases for subdivs). */
 			mWireframeMaterial = new UnshadedMaterial(new Color3f(0.8f, 0.8f, 0.8f));
 			mWireframeMarkedEdgeMaterial = new UnshadedMaterial(new Color3f(1.0f, 0.0f, 1.0f));
+			
+			
+			mSmokeShader = new ShaderProgram(gl, "shaders/soft_particles", true, GL2.GL_POINTS, GL2.GL_TRIANGLE_STRIP, 4);
+			
+			mSmokeShader.bind(gl);
+			gl.glUniform1i(mVisShader.getUniformLocation(gl, "DiffuseBuffer"), 0);
+			gl.glUniform1i(mVisShader.getUniformLocation(gl, "PositionBuffer"), 1);
+			mSmokeShader.unbind(gl);
+			mSmokeEnableSoftParticlesLocation = mSmokeShader.getUniformLocation(gl, "EnableSoftParticles");
+			mSmokeNearPlaneLocation = mSmokeShader.getUniformLocation(gl, "NearPlane");
+			mSmokeTauLocation = mSmokeShader.getUniformLocation(gl, "Tau");
+			System.out.println(mSmokeEnableSoftParticlesLocation);
+			System.out.println(mSmokeNearPlaneLocation);
+			System.out.println(mSmokeTauLocation);
 			
 			/* Make sure nothing went wrong. */
 			OpenGLException.checkOpenGLError(gl);

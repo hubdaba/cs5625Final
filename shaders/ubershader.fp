@@ -28,6 +28,7 @@ uniform sampler2DRect MaterialParams1Buffer;
 uniform sampler2DRect MaterialParams2Buffer;
 uniform sampler2DRect SilhouetteBuffer;
 uniform sampler2DRect SSAOBuffer;
+uniform sampler2DRect ParticleBuffer;
 
 uniform bool EnableToonShading;
 uniform bool EnableSSAO;
@@ -191,4 +192,8 @@ void main()
 	{
 		gl_FragColor.rgb *= texture2DRect(SSAOBuffer, gl_FragCoord.xy).rgb;
 	}
+	
+	/* Add in alpha blended particles */
+	vec4 pColor = texture2DRect(ParticleBuffer, gl_FragCoord.xy);
+	gl_FragColor.rgb = (gl_FragColor.rgb*gl_FragColor.a + pColor.rgb*pColor.a) / (pColor.a + gl_FragColor.a);
 }

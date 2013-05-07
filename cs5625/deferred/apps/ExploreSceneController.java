@@ -12,6 +12,8 @@ import javax.vecmath.*;
 
 import cs5625.deferred.materials.LambertianMaterial;
 import cs5625.deferred.misc.Util;
+import cs5625.deferred.particles.Particle;
+import cs5625.deferred.particles.SmokeSystem;
 import cs5625.deferred.scenegraph.Geometry;
 import cs5625.deferred.scenegraph.PointLight;
 import cs5625.deferred.scenegraph.TerrainRenderer;
@@ -71,6 +73,18 @@ public class ExploreSceneController extends SceneController
 
 			light.setPosition(new Point3f(50.0f, 180.0f, 100.0f));
 			mSceneRoot.addChild(light);	
+			
+			SmokeSystem smoke = new SmokeSystem();
+			Particle p = new Particle();
+			p.x = new Point3d(0.0, 2.0, 0.0);
+			p.radius = 4f;
+			smoke.addParticle(p);
+			p = new Particle();
+			p.x = new Point3d(0.0, -2.0, 0.0);
+			p.radius = 4f;
+			smoke.addParticle(p);
+			
+			mSceneRoot.addChild(smoke);
 		}
 		catch (Exception err)
 		{
