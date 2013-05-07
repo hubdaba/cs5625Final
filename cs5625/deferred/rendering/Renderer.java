@@ -666,6 +666,7 @@ public class Renderer
 		{
 			/* Ignore attributes which aren't actually used in the shader. */
 			int location = shader.getAttribLocation(gl, attrib);
+			System.out.println("location is "+location);
 			if (location < 0)
 			{
 				continue;
@@ -812,6 +813,8 @@ public class Renderer
 			mWireframeMarkedEdgeMaterial = new UnshadedMaterial(new Color3f(1.0f, 0.0f, 1.0f));
 			
 			
+			
+			
 			mSmokeShader = new ShaderProgram(gl, "shaders/soft_particles", true, GL2.GL_POINTS, GL2.GL_TRIANGLE_STRIP, 4);
 			
 			mSmokeShader.bind(gl);
@@ -821,9 +824,9 @@ public class Renderer
 			mSmokeEnableSoftParticlesLocation = mSmokeShader.getUniformLocation(gl, "EnableSoftParticles");
 			mSmokeNearPlaneLocation = mSmokeShader.getUniformLocation(gl, "NearPlane");
 			mSmokeTauLocation = mSmokeShader.getUniformLocation(gl, "Tau");
-			System.out.println(mSmokeEnableSoftParticlesLocation);
-			System.out.println(mSmokeNearPlaneLocation);
-			System.out.println(mSmokeTauLocation);
+			System.out.println("EnableSoftParticleLocation = "+mSmokeEnableSoftParticlesLocation);
+			System.out.println("NearPlaneLocation = "+mSmokeNearPlaneLocation);
+			System.out.println("TauLocation = "+mSmokeTauLocation);
 			
 			/* Make sure nothing went wrong. */
 			OpenGLException.checkOpenGLError(gl);

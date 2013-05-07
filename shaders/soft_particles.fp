@@ -19,7 +19,7 @@ void main() {
 	float alpha = 0.0;
 	float x = 2.0*r*(TexCoord0.x-0.5);
 	float y = 2.0*r*(TexCoord0.y-0.5);
-	/*
+	
  	if (EnableSoftParticles == 1) {
  		// From the Umenhoffer et al. (Budapest University) paper on Spherical Billboards
  		float d = sqrt(x*x+y*y);
@@ -35,7 +35,7 @@ void main() {
  		}
  	} else { 
  		alpha = max(1.0-(x*x+y*y)/(r*r), 0.0);
- 	} */
+ 	} 
  	//alpha=1.0;
  	//alpha = (x+r)*(y+r)/(4.0*r*r);
  	//gl_FragColor = vec4(TexCoord.xy, 0.0, 1.0);

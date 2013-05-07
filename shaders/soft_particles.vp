@@ -4,11 +4,11 @@
  * 
  */
  
- 
+
 uniform int EnableSoftParticles;
 uniform float NearPlane;
 uniform float Tau;
- 
+
 attribute float radius;
 
 varying float rad;
@@ -25,6 +25,6 @@ void main() {
  	//r = radius;
 	//TexCoord = gl_MultiTexCoord0.xy;
 	
-	rad = 1.0;//radius;
+	rad = radius;
 	gl_Position = gl_Vertex;
 } 

@@ -1,6 +1,11 @@
 #version 120
 #extension GL_EXT_gpu_shader4 : enable
 #extension GL_EXT_geometry_shader4 : enable
+ 
+
+uniform int EnableSoftParticles;
+uniform float NearPlane;
+uniform float Tau;
 
 varying float rad;
 
