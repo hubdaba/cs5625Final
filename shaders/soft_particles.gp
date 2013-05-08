@@ -7,7 +7,7 @@ uniform int EnableSoftParticles;
 uniform float NearPlane;
 uniform float Tau;
 
-varying float rad;
+varying in float rad[];
 
 varying out float r;
 varying out vec2 TexCoord0;
@@ -20,25 +20,24 @@ void main() {
 	// Maybe, feed in the origin vertex, then do the model view transform
 	// here, so billboarding is straightforward?
 	vec4 loc = gl_ModelViewMatrix * gl_PositionIn[0];
-	
-	r = rad;
+	r = rad[0];
 	z = loc.z / loc.w;
 	
-	gl_Position = gl_ProjectionMatrix * (loc + vec4(-rad, -rad, 0.0, 0.0) );
+	gl_Position = gl_ProjectionMatrix * (loc + vec4(-r, -r, 0.0, 0.0) );
 	TexCoord0 = vec2(0.0, 0.0);
 	EmitVertex();
 	
-	gl_Position = gl_ProjectionMatrix * (loc + vec4(-rad,  rad, 0.0, 0.0) );
+	gl_Position = gl_ProjectionMatrix * (loc + vec4(-r,  r, 0.0, 0.0) );
 	TexCoord0 = vec2(0.0, 1.0);
 	EmitVertex();
 	
-	gl_Position = gl_ProjectionMatrix * (loc + vec4( rad, -rad, 0.0, 0.0) );
+	gl_Position = gl_ProjectionMatrix * (loc + vec4( r, -r, 0.0, 0.0) );
 	TexCoord0 = vec2(1.0, 0.0);
 	EmitVertex();
 	
-	gl_Position = gl_ProjectionMatrix * (loc + vec4( rad,  rad, 0.0, 0.0) );
+	gl_Position = gl_ProjectionMatrix * (loc + vec4( r,  r, 0.0, 0.0) );
 	TexCoord0 = vec2(1.0, 1.0);
-	EmitVertex();
+	EmitVertex(); 
 	
 	EndPrimitive();
 }

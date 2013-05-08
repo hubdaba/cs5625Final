@@ -196,4 +196,5 @@ void main()
 	/* Add in alpha blended particles */
 	vec4 pColor = texture2DRect(ParticleBuffer, gl_FragCoord.xy);
 	gl_FragColor.rgb = (gl_FragColor.rgb*gl_FragColor.a + pColor.rgb*pColor.a) / (pColor.a + gl_FragColor.a);
+	//gl_FragColor += pColor;
 }

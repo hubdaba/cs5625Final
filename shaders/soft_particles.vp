@@ -25,6 +25,6 @@ void main() {
  	//r = radius;
 	//TexCoord = gl_MultiTexCoord0.xy;
 	
-	rad = radius;
+	rad = 1.0;//radius;
 	gl_Position = gl_Vertex;
 } 

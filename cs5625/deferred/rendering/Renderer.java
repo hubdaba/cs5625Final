@@ -287,7 +287,7 @@ public class Renderer
 		// Render the particle systems in the scene graph
 		
 		/* Bind the SSAO buffer as output. */
-		mGBufferFBO.bindOne(gl, GBuffer_SSAOIndex);
+		mGBufferFBO.bindOne(gl, GBuffer_ParticleIndex);
 
 		gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		gl.glClear(GL2.GL_COLOR_BUFFER_BIT);
