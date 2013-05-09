@@ -1,15 +1,19 @@
 package cs5625.deferred.scenegraph;
 
+import geometry.Explosion;
 import geometry.SuperBlock;
 
 import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.List;
 
 import javax.media.opengl.GL2;
 import javax.media.opengl.glu.GLU;
+import javax.vecmath.Point3f;
 import javax.vecmath.Tuple3f;
 
+import cs5625.deferred.apps.ExploreSceneController;
 import cs5625.deferred.materials.Texture;
 import cs5625.deferred.materials.Texture2D;
 import cs5625.deferred.materials.Texture3D;
@@ -27,10 +31,13 @@ public class TerrainBlockRenderer extends SuperBlock {
 	private static ShaderProgram mTerrainShader;
 
 	/* The uniform location for the terrain generation*/
+	private static int[] mExplosionPositionUniformLocation;
+	private static int mNumExplosionsUniformLocation;
 	private static int mLayerDensityUniformLocation;
 	private static int mLowerCornerDensityUniformLocation;
 	private static int mNumVoxelsDensityUniformLocation;
 	private static int mBlockSizeDensityUniformLocation;
+	private static int mExplosionRadiusUniformLocation;
 
 	private static int mTerrainLowerCornerUniformLocation;
 	private static int mTerrainNumVoxelsUniformLocation;
@@ -43,16 +50,25 @@ public class TerrainBlockRenderer extends SuperBlock {
 
 	private VertexBuffer buffer;
 
-	private boolean needSetup = true;
+	public static int NUM_EXPLOSIONS = 5; 
+	
 	private int num_polygons = -1;
-	private boolean texture_filled = false;
+	private boolean density_filled;
+	private boolean buffer_filled;
+
+	private List<Explosion> explosions;
 
 
-	public TerrainBlockRenderer(GL2 gl, Tuple3f minPoint, int numVoxels, float sideLength) throws OpenGLException, IOException {
+	public TerrainBlockRenderer(GL2 gl, Tuple3f minPoint, int numVoxels, float sideLength,
+												List<Explosion> explosions) throws OpenGLException, IOException {
 		super(minPoint, sideLength);
 		this.numVoxels = numVoxels;
+		density_filled = false;
+		buffer_filled = false;
 		setup(gl);
+		this.explosions = explosions;
 	}
+	
 
 	public static void initializeTerrain(GL2 gl) throws OpenGLException, IOException {
 		if (!initialized) {
@@ -81,6 +97,13 @@ public class TerrainBlockRenderer extends SuperBlock {
 			mLowerCornerDensityUniformLocation = mDensityShader.getUniformLocation(gl, "LowerCorner");
 			mNumVoxelsDensityUniformLocation = mDensityShader.getUniformLocation(gl, "NumVoxels");
 			mBlockSizeDensityUniformLocation = mDensityShader.getUniformLocation(gl, "BlockSize");
+			mExplosionPositionUniformLocation = new int[NUM_EXPLOSIONS];
+			for (int i = 0; i < NUM_EXPLOSIONS; i++) {
+				String uniformName = String.format("ExplosionPositions[%d]", i);
+				mExplosionPositionUniformLocation[i] =  mDensityShader.getUniformLocation(gl, uniformName);
+			}
+			mNumExplosionsUniformLocation = mDensityShader.getUniformLocation(gl, "NumExplosions");
+			mExplosionRadiusUniformLocation = mDensityShader.getUniformLocation(gl, "ExplosionRadius");
 			
 			mDensityShader.bind(gl);
 			gl.glUniform1i(mDensityShader.getUniformLocation(gl, "Permutation"), 0);
@@ -101,7 +124,7 @@ public class TerrainBlockRenderer extends SuperBlock {
 	}
 
 	public void fillTexture3D(GL2 gl) throws OpenGLException {
-		if (this.texture_filled) {
+		if (density_filled) {
 			return;
 		}
 		gl.glPushAttrib(GL2.GL_TRANSFORM_BIT);
@@ -134,6 +157,14 @@ public class TerrainBlockRenderer extends SuperBlock {
 			gl.glUniform3f(mLowerCornerDensityUniformLocation, minPoint.x, minPoint.y, minPoint.z);
 			gl.glUniform1f(mNumVoxelsDensityUniformLocation, numVoxels);
 			gl.glUniform1f(mBlockSizeDensityUniformLocation, sideLength);
+			gl.glUniform1i(mNumExplosionsUniformLocation, explosions.size());
+			gl.glUniform1f(mExplosionRadiusUniformLocation, ExploreSceneController.EXPLOSION_RADIUS);
+			for (int j = 0; j < explosions.size(); j++) {
+				System.out.println("sending explosion ");
+				Point3f explosionPosition = explosions.get(j).getPosition();
+				gl.glUniform3f(mExplosionPositionUniformLocation[j], 
+						explosionPosition.x, explosionPosition.y, explosionPosition.z);
+			}
 
 			gl.glBegin(GL2.GL_TRIANGLES);
 			gl.glVertex3d(1, 1, 0);
@@ -159,10 +190,14 @@ public class TerrainBlockRenderer extends SuperBlock {
 		/* Restore active matrix. */
 		gl.glPopAttrib();
 
+		density_filled = true;
 
 	}
 
 	public void renderPolygons(GL2 gl) throws OpenGLException {
+		if (buffer_filled) {
+			return;
+		}
 		if (num_polygons >= 0) {
 			return; 
 		}
@@ -217,6 +252,8 @@ public class TerrainBlockRenderer extends SuperBlock {
 
 		if (num_polygons == 0) {
 			releaseGPUResources(gl);
+		} else {
+			buffer_filled = true;
 		}
 
 		/* Make sure nothing went wrong. */
@@ -230,34 +267,34 @@ public class TerrainBlockRenderer extends SuperBlock {
 	}
 
 	public void releaseGPUResources(GL2 gl) {
-		if (!needSetup) {
-			return;
+		if (buffer_filled) {
+			buffer.releaseGPUResources(gl);
+			buffer_filled = false;
 		}
-		buffer.releaseGPUResources(gl);
 		buffer = null;
-		this.blockDensityFunction.releaseGPUResources(gl);
-		texture_filled = false;
+		if (density_filled) {
+			this.blockDensityFunction.releaseGPUResources(gl);
+			density_filled = false;
+		}
 		this.num_polygons = -1;
-		this.needSetup = true;
 	}
-	
+
 	public void setup(GL2 gl) throws OpenGLException {
 		buffer = new VertexBuffer(gl, this.numVoxels);
 		blockDensityFunction = new FramebufferObject3D(gl, Texture3D.Format.RGBA,
 				Texture3D.Datatype.FLOAT16, numVoxels + 1, numVoxels + 1, numVoxels + 2);
-
-
-		
-		
-		this.needSetup = false;
 	}
 
 	public void renderTerrain(GL2 gl) throws OpenGLException {
+	
 		if (num_polygons > 0) {
-			if (needSetup) {
-				System.out.println("asdfehhhhr");
-				System.exit(0);
-			} 
+			if (!buffer_filled) {
+				throw new OpenGLException("rendering empty buffer");
+			}
+			if (!density_filled) {
+				throw new OpenGLException("rendering empty density");
+			}
+			
 			buffer.bind(gl);
 			gl.glEnableVertexAttribArray(0);
 			gl.glVertexAttribPointer(0, 4, GL2.GL_FLOAT, false, 0, 0);
@@ -270,7 +307,7 @@ public class TerrainBlockRenderer extends SuperBlock {
 		OpenGLException.checkOpenGLError(gl);
 
 	}
-	
+
 	public int getNumPolygons() {
 		return num_polygons;
 	}
@@ -305,5 +342,9 @@ public class TerrainBlockRenderer extends SuperBlock {
 		OpenGLException.checkOpenGLError(gl);
 
 	}
+	
+	
+
+	
 
 }

@@ -21,7 +21,7 @@ void main() {
 	// here, so billboarding is straightforward?
 	vec4 loc = gl_ModelViewMatrix * gl_PositionIn[0];
 	r = rad[0];
-	z = loc.z / loc.w;
+	z = loc.z;
 	
 	gl_Position = gl_ProjectionMatrix * (loc + vec4(-r, -r, 0.0, 0.0) );
 	TexCoord0 = vec2(0.0, 0.0);

@@ -13,7 +13,6 @@ import javax.vecmath.Color3f;
 import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
-import javax.vecmath.Vector3f;
 
 import cs5625.deferred.materials.Material;
 import cs5625.deferred.materials.Texture.Datatype;
@@ -306,8 +305,8 @@ public class Renderer
 		
 		/* We need to disable interpolation on the g-buffer, otherwise we get ringing artifacts!
 		 * This won't reduce the quality of our ssao because the g-buffer is full resolution. */
-		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).enableInterpolation(gl, false);
-		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).enableInterpolation(gl, false);
+		//mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).enableInterpolation(gl, false);
+		//mGBufferFBO.getColorTexture(GBuffer_PositionIndex).enableInterpolation(gl, false);
 		
 		/* Bind the SSAO shader and update the uniforms. */
 		mSmokeShader.bind(gl);
@@ -497,25 +496,12 @@ public class Renderer
 		
 		/* Apply this object's transformation. */
 		gl.glTranslatef(position.x, position.y, position.z);
-		gl.glRotatef(orientation.angle * 180.0f / (float)Math.PI, orientation.x, orientation.y, orientation.z);
-		gl.glScalef(scale, scale, scale);
+		gl.glRotatef(orientation.angle * 180.0f / (float)Math.PI, orientation.x, orientation.y, orientation.z);;
 		if (obj instanceof TerrainRenderer) {
-			System.out.println("Starting rendering terrain.");
-			long setupTime;
-			long polygonTime;
-			long renderTime;
-			long terrainStart = System.currentTimeMillis();
 			((TerrainRenderer) obj).setupPosition(gl, camera);
-			setupTime = System.currentTimeMillis() - terrainStart;
 			((TerrainRenderer) obj).renderPolygons(gl, camera);
-			polygonTime = System.currentTimeMillis() - terrainStart - setupTime;
 			((TerrainRenderer) obj).getMaterial().retrieveShader(gl, mShaderCache);
 			((TerrainRenderer) obj).renderTerrain(gl);
-			long currentTime = System.currentTimeMillis();
-			renderTime = currentTime - terrainStart - polygonTime - setupTime;
-			long duration = System.currentTimeMillis() - terrainStart;
-			System.out.println(String.format("Finished rendering terrain. Time took: %d ms\n", duration));
-			System.out.println(String.format("\tsetup time: %d ms\n\tpolygon time %d ms\n\trender time %d ms\n", setupTime, polygonTime, renderTime));
 		}
 		
 		/* Render this object as appropriate for its type. */
@@ -818,15 +804,12 @@ public class Renderer
 			mSmokeShader = new ShaderProgram(gl, "shaders/soft_particles", true, GL2.GL_POINTS, GL2.GL_TRIANGLE_STRIP, 4);
 			
 			mSmokeShader.bind(gl);
-			gl.glUniform1i(mVisShader.getUniformLocation(gl, "DiffuseBuffer"), 0);
-			gl.glUniform1i(mVisShader.getUniformLocation(gl, "PositionBuffer"), 1);
+			gl.glUniform1i(mSmokeShader.getUniformLocation(gl, "DiffuseBuffer"), 0);
+			gl.glUniform1i(mSmokeShader.getUniformLocation(gl, "PositionBuffer"), 1);
 			mSmokeShader.unbind(gl);
 			mSmokeEnableSoftParticlesLocation = mSmokeShader.getUniformLocation(gl, "EnableSoftParticles");
 			mSmokeNearPlaneLocation = mSmokeShader.getUniformLocation(gl, "NearPlane");
 			mSmokeTauLocation = mSmokeShader.getUniformLocation(gl, "Tau");
-			System.out.println("EnableSoftParticleLocation = "+mSmokeEnableSoftParticlesLocation);
-			System.out.println("NearPlaneLocation = "+mSmokeNearPlaneLocation);
-			System.out.println("TauLocation = "+mSmokeTauLocation);
 			
 			/* Make sure nothing went wrong. */
 			OpenGLException.checkOpenGLError(gl);

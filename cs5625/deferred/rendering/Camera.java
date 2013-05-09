@@ -6,10 +6,8 @@ import geometry.SuperBlock;
 import java.util.LinkedList;
 import java.util.List;
 
-import javax.vecmath.Matrix3f;
 import javax.vecmath.Matrix4f;
 import javax.vecmath.Point3f;
-import javax.vecmath.Tuple3f;
 
 import cs5625.deferred.misc.Observer;
 import cs5625.deferred.misc.Observerable;
@@ -128,7 +126,6 @@ public class Camera extends SceneObject implements Observerable, Frustum
 		observers.add(o);
 	}
 
-	@Override
 	public void notifyObservers() {
 		for (Observer observer : observers) {
 			observer.update(this);
@@ -137,19 +134,7 @@ public class Camera extends SceneObject implements Observerable, Frustum
 
 	@Override
 	public boolean inFrustum(SuperBlock block) {
-		for (Point3f corner : block.getCorners()) {
-			Point3f tempPoint = new Point3f(corner);
-			tempPoint.sub(mPosition);
-			this.getWorldSpaceRotationMatrix3f().transform(tempPoint);
-			if (tempPoint.z > -mNear || tempPoint.z < -mFar) { 
-				continue;
-			}
-			float vertDistance = (float)((-tempPoint.z * Math.tan(mFOV * Math.PI / 180.0)) / 2);
-			if (Math.abs(tempPoint.x) > vertDistance || Math.abs(tempPoint.y) > vertDistance) {
-				continue;
-			}
-			return true;
-		}
-		return false;
+		return true;
+		
 	}
 }

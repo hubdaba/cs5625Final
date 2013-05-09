@@ -1,7 +1,9 @@
 package cs5625.deferred.particles;
 
 import java.nio.FloatBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 
 import javax.vecmath.Point3d;
 

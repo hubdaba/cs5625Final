@@ -1,7 +1,8 @@
 package cs5625.deferred.apps;
 
+import geometry.ExplosionHandler;
+
 import java.awt.Point;
-import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
 
@@ -42,7 +43,7 @@ public class TerrainSceneController extends SceneController
 	@Override
 	public void initializeScene()
 	{
-		terrainRenderer = new TerrainRenderer(false);
+		terrainRenderer = new TerrainRenderer(false, new ExplosionHandler(), null);
 		mCamera.setFar(70f);
 		mCamera.addObserver(terrainRenderer);
 		try

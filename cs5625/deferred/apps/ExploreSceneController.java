@@ -1,20 +1,28 @@
 package cs5625.deferred.apps;
 
+import geometry.Explosion;
+import geometry.ExplosionHandler;
+import geometry.QuadSampler;
+
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseWheelEvent;
+import java.util.LinkedList;
+import java.util.List;
 
 import javax.swing.Timer;
-import javax.vecmath.*;
+import javax.vecmath.AxisAngle4f;
+import javax.vecmath.Point3d;
+import javax.vecmath.Point3f;
+import javax.vecmath.Quat4f;
+import javax.vecmath.Vector2f;
+import javax.vecmath.Vector3f;
 
-import cs5625.deferred.materials.LambertianMaterial;
 import cs5625.deferred.misc.Util;
 import cs5625.deferred.particles.Particle;
 import cs5625.deferred.particles.SmokeSystem;
-import cs5625.deferred.scenegraph.Geometry;
 import cs5625.deferred.scenegraph.PointLight;
 import cs5625.deferred.scenegraph.TerrainRenderer;
 
@@ -35,6 +43,9 @@ import cs5625.deferred.scenegraph.TerrainRenderer;
  */
 public class ExploreSceneController extends SceneController
 {
+	
+	public static float EXPLOSION_RADIUS = 30.0f;
+	
 	/* Keeps track of camera's orbit position. Latitude and longitude are in degrees. */
 	private float mCameraLongitude = 50.0f, mCameraLatitude = -40.0f;
 	private Point3f mCameraPosition = new Point3f(0f, 0f, 0f);
@@ -45,7 +56,7 @@ public class ExploreSceneController extends SceneController
 	private float tau = 0.65f;
 	private float decay = 0.999f;	// Just for sanity, in case a call is missed (and it helped in diagnostics)
 	private Vector2f targetVelocity = new Vector2f();
-	private float maxSpeed = 3.0f;
+	private float maxSpeed = 30.0f;
 	
 	private float rotScale = 0.3f;
 
@@ -53,17 +64,25 @@ public class ExploreSceneController extends SceneController
 	private Point mLastMouseDrag;
 
 	private TerrainRenderer terrainRenderer;
+	private ExplosionHandler explosionHandler;
 
 	private int millisec = 40;
 
 	@Override
 	public void initializeScene()
 	{
-		terrainRenderer = new TerrainRenderer(false);
+		explosionHandler = new ExplosionHandler();
+		QuadSampler quad1 = new QuadSampler(new Point3f(0, 0, 0), TerrainRenderer.BLOCK_SIZE);
+		QuadSampler quad2 = new QuadSampler(new Point3f(0, -TerrainRenderer.BLOCK_SIZE, 0), TerrainRenderer.BLOCK_SIZE);
+		List<QuadSampler> blocksToRender = new LinkedList<QuadSampler>();
+		blocksToRender.add(quad1);
+		blocksToRender.add(quad2);
+		terrainRenderer = new TerrainRenderer(false, explosionHandler, null);
 		try
 		{
 			mSceneRoot.addChild(terrainRenderer);
 			mCamera.addObserver(terrainRenderer);
+			explosionHandler.addObserver(terrainRenderer);
 			/* Add an unattenuated point light to provide overall illumination. */
 			PointLight light = new PointLight();
 
@@ -108,7 +127,6 @@ public class ExploreSceneController extends SceneController
 		targetVelocity.scale(decay);
 		mCameraVelocity.scale(tau);
 		mCameraVelocity.scaleAdd(1.0f-tau, targetVelocity, mCameraVelocity);
-		
 		mCameraPosition.scaleAdd((float)dt * mCameraVelocity.x, rightVector, mCameraPosition);
 		mCameraPosition.scaleAdd((float)dt * mCameraVelocity.y, forwardVector, mCameraPosition);
 		
@@ -127,18 +145,21 @@ public class ExploreSceneController extends SceneController
 
 		Quat4f latitudeQuat = new Quat4f();
 		latitudeQuat.set(new AxisAngle4f(1.0f, 0.0f, 0.0f, mCameraLatitude * (float)Math.PI / 180.0f));
-
+		Quat4f mCameraPrevOrientation = new Quat4f(mCamera.getOrientation());
 		mCamera.getOrientation().mul(longitudeQuat, latitudeQuat);
-
+		boolean orientationChanged = !mCameraPrevOrientation.equals(mCamera.getOrientation()); 
+		Point3f mCameraPositionPrev = new Point3f(mCamera.getPosition());
 		mCamera.getPosition().set(mCameraPosition);
-		
 		forwardVector = new Vector3f(0.0f, 0.0f, -1.0f);
 		rightVector = new Vector3f(1.0f, 0.0f, 0.0f);
 		Util.rotateTuple(mCamera.getOrientation(), forwardVector);
 		Util.rotateTuple(mCamera.getOrientation(), rightVector);
 		forwardVector.normalize();
 		rightVector.normalize();
-		mCamera.notifyObservers();
+		boolean positionChanged = !mCameraPositionPrev.equals(mCamera.getPosition());
+		if (positionChanged || orientationChanged) {
+			mCamera.notifyObservers();
+		} 
 	}
 
 	@Override
@@ -178,10 +199,21 @@ public class ExploreSceneController extends SceneController
 			mCameraLatitude = 89.0f * Math.signum(mCameraLatitude);
 		}
 	}
+	
+	public void keyTyped(KeyEvent key) {
+		super.keyTyped(key);
+		char c = key.getKeyChar();
+		if (c == ' ') {
+			explosionHandler.addExplosion(
+						new Explosion(mCamera.getPosition(), EXPLOSION_RADIUS));
+		}
+	}
+	
+	
 
 	public void keyPressed(KeyEvent key)
 	{
-		super.keyPressed(key);
+		super.keyPressed(key);	
 		switch (key.getKeyCode()) {
 		case KeyEvent.VK_UP:
 			targetVelocity.y = maxSpeed;
@@ -196,6 +228,7 @@ public class ExploreSceneController extends SceneController
 			targetVelocity.x = +maxSpeed;
 			break;
 		}
+		
 	}
 	public void keyReleased(KeyEvent key)
 	{

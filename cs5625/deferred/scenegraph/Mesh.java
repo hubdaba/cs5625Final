@@ -2,9 +2,7 @@ package cs5625.deferred.scenegraph;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 
 import javax.media.opengl.GL2;
 import javax.vecmath.GMatrix;

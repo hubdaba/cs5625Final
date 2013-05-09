@@ -6,6 +6,8 @@ import javax.vecmath.Tuple3f;
 import cs5625.deferred.misc.PerlinNoise;
 
 public class QuadSampler extends SuperBlock {
+	
+	
 
 	public QuadSampler(Tuple3f minPoint, float sideLength) {
 		super(minPoint, sideLength);
@@ -29,7 +31,7 @@ public class QuadSampler extends SuperBlock {
 	
 	
 
-	private float evaluate(Point3f point) {
+	public float evaluate(Point3f point) {
 		
 
 		//int[] val = PerlinNoise.noise[(int)multPoint.x][(int)multPoint.y][(int)multPoint.z];
@@ -40,7 +42,7 @@ public class QuadSampler extends SuperBlock {
 
 	
 	public boolean hasPolygons() {
-		boolean hasNeg = false;
+		/*boolean hasNeg = false;
 		boolean hasPos = false;
 		float voxelSize = sideLength/20;
 		for (float x = minPoint.x; x <= minPoint.x + sideLength; x+= voxelSize) {
@@ -59,7 +61,14 @@ public class QuadSampler extends SuperBlock {
 				}
 			}
 		}
-		return false;
+		return false;*/
+		return true;
 	}
 
+	@Override
+	public String toString() {
+		return minPoint.toString();
+	}
+	
+	
 }
