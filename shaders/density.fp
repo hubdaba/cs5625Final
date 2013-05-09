@@ -6,6 +6,8 @@ uniform float BlockSize;
 uniform int NumExplosions;
 uniform vec3 ExplosionPositions[5];
 
+uniform float ExplosionRadius;
+
 uniform sampler2D Permutation;
 uniform sampler2D Gradient;
 
@@ -72,6 +74,16 @@ void main() {
 	}
 	vec3 worldCoord = vec3((px - 0.5)/(NumVoxels), ((py - 0.5)/(NumVoxels)), (float(Layer) - 1.0)/(NumVoxels));
 	worldCoord = worldCoord * BlockSize + LowerCorner; 
-
-	gl_FragColor.rgb = vec3(worldCoord.y + inoise(worldCoord));
+	
+	float explosion_offset = 0.0;
+	
+	for (int i = 0; i < NumExplosions; i++) {
+		vec3 ExplosionCenter = ExplosionPositions[i];
+		float distance = distance(ExplosionCenter, worldCoord);
+		if (distance < ExplosionRadius) {
+			explosion_offset += 200.0 * ((ExplosionRadius - distance)/ExplosionRadius);
+		} 
+	}
+	
+	gl_FragColor.rgb = vec3(worldCoord.y + inoise(worldCoord) + explosion_offset);
 }

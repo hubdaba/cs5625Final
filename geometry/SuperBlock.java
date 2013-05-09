@@ -77,22 +77,45 @@ public class SuperBlock {
 	}
 
 	public boolean containsBlock(SuperBlock block) {
+		Point3f blockMaxPoint = block.getMaxPoint();
+		Point3f blockMinPoint = block.getMinPoint();
+		
 		Point3f maxPoint = new Point3f(minPoint);
 		maxPoint.add(new Point3f(sideLength, sideLength, sideLength));
-		for (Point3f corner : block.getCorners()) {
-			if (corner.x > maxPoint.x || corner.x < minPoint.x) {
-				continue;
-			}
-			if (corner.y > maxPoint.y || corner.y < minPoint.y) {
-				continue;
-			}
-			if (corner.z > maxPoint.z || corner.z < minPoint.z) {
-				continue;
-			}
-			return true;
+		boolean isLeft = false;
+		boolean isRight = false;
+		boolean isFront = false;
+		boolean isBack = false;
+		boolean isTop = false;
+		boolean isBottom = false;
+		
+		if (blockMaxPoint.x < minPoint.x) {
+			isLeft = true;
 		}
-
-		return false;
+		
+		if (blockMinPoint.x > maxPoint.x){
+			isRight = true;
+		}
+		
+		if (blockMaxPoint.y < minPoint.y) {
+			isBottom = true;
+		}
+		
+		if (blockMinPoint.y > maxPoint.y) {
+			isTop = true;
+		}
+		
+		if (blockMaxPoint.z < minPoint.z) {
+			isBack = true;
+		}
+		
+		if (blockMinPoint.z > maxPoint.z) {
+			isFront = true;
+		}
+		
+		return !isLeft && !isRight && !isBottom && !isTop && !isFront && !isBack;
+		
+	
 	}
 
 	public boolean completelyContains(SuperBlock block) {

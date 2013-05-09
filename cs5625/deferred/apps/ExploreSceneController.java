@@ -2,12 +2,15 @@ package cs5625.deferred.apps;
 
 import geometry.Explosion;
 import geometry.ExplosionHandler;
+import geometry.QuadSampler;
 
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
+import java.util.LinkedList;
+import java.util.List;
 
 import javax.swing.Timer;
 import javax.vecmath.AxisAngle4f;
@@ -66,7 +69,12 @@ public class ExploreSceneController extends SceneController
 	public void initializeScene()
 	{
 		explosionHandler = new ExplosionHandler();
-		terrainRenderer = new TerrainRenderer(false, explosionHandler);
+		QuadSampler quad1 = new QuadSampler(new Point3f(0, 0, 0), TerrainRenderer.BLOCK_SIZE);
+		QuadSampler quad2 = new QuadSampler(new Point3f(0, -TerrainRenderer.BLOCK_SIZE, 0), TerrainRenderer.BLOCK_SIZE);
+		List<QuadSampler> blocksToRender = new LinkedList<QuadSampler>();
+		blocksToRender.add(quad1);
+		blocksToRender.add(quad2);
+		terrainRenderer = new TerrainRenderer(false, explosionHandler, null);
 		try
 		{
 			mSceneRoot.addChild(terrainRenderer);
@@ -104,7 +112,6 @@ public class ExploreSceneController extends SceneController
 		targetVelocity.scale(decay);
 		mCameraVelocity.scale(tau);
 		mCameraVelocity.scaleAdd(1.0f-tau, targetVelocity, mCameraVelocity);
-		
 		mCameraPosition.scaleAdd((float)dt * mCameraVelocity.x, rightVector, mCameraPosition);
 		mCameraPosition.scaleAdd((float)dt * mCameraVelocity.y, forwardVector, mCameraPosition);
 		
@@ -123,18 +130,21 @@ public class ExploreSceneController extends SceneController
 
 		Quat4f latitudeQuat = new Quat4f();
 		latitudeQuat.set(new AxisAngle4f(1.0f, 0.0f, 0.0f, mCameraLatitude * (float)Math.PI / 180.0f));
-
+		Quat4f mCameraPrevOrientation = new Quat4f(mCamera.getOrientation());
 		mCamera.getOrientation().mul(longitudeQuat, latitudeQuat);
-
+		boolean orientationChanged = !mCameraPrevOrientation.equals(mCamera.getOrientation()); 
+		Point3f mCameraPositionPrev = new Point3f(mCamera.getPosition());
 		mCamera.getPosition().set(mCameraPosition);
-		
 		forwardVector = new Vector3f(0.0f, 0.0f, -1.0f);
 		rightVector = new Vector3f(1.0f, 0.0f, 0.0f);
 		Util.rotateTuple(mCamera.getOrientation(), forwardVector);
 		Util.rotateTuple(mCamera.getOrientation(), rightVector);
 		forwardVector.normalize();
 		rightVector.normalize();
-		mCamera.notifyObservers();
+		boolean positionChanged = !mCameraPositionPrev.equals(mCamera.getPosition());
+		if (positionChanged || orientationChanged) {
+			mCamera.notifyObservers();
+		} 
 	}
 
 	@Override
@@ -179,7 +189,6 @@ public class ExploreSceneController extends SceneController
 		super.keyTyped(key);
 		char c = key.getKeyChar();
 		if (c == ' ') {
-			System.out.println("explosion");
 			explosionHandler.addExplosion(
 						new Explosion(mCamera.getPosition(), EXPLOSION_RADIUS));
 		}

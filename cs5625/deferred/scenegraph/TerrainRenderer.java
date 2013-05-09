@@ -35,25 +35,28 @@ public class TerrainRenderer extends SceneObject implements Observer {
 	private Map<Point3f, TerrainBlockRenderer> blocks;
 
 	private boolean needSetup = false;
-	
+
 	private Material terrainMaterial;
 	private boolean isTest;
 	public static float BLOCK_SIZE = 32;
-	
+
 	private Set<QuadSampler> nonemptyBlocks;
 	private BlockingQueue<QuadSampler> explodedBlocks;
-	
+	private List<QuadSampler> blocksToRender;
+
 	private SuperBlock renderArea;
 	private Point3f cameraPos;
-	
+
 	private ExplosionHandler explosionHandler;
 
-	public TerrainRenderer(boolean isTest, ExplosionHandler explosionHandler) {
+	public TerrainRenderer(boolean isTest, ExplosionHandler explosionHandler,
+			List<QuadSampler> blocksToRender) {
 		blocks = new HashMap<Point3f, TerrainBlockRenderer>();
 		this.explosionHandler = explosionHandler;
 		nonemptyBlocks = new HashSet<QuadSampler>();
 		explodedBlocks = new LinkedBlockingQueue<QuadSampler>();
-		
+		this.blocksToRender = blocksToRender;
+
 		this.isTest = isTest;
 		if (isTest) {
 			terrainMaterial = new LambertianMaterial(new Color3f(1.0f, 0.0f, 0.0f));
@@ -64,40 +67,54 @@ public class TerrainRenderer extends SceneObject implements Observer {
 
 	// set up blocks according to view frustum
 	public void setupPosition(GL2 gl, Camera camera) throws OpenGLException, IOException {
-		
+
 		if (!needSetup) {
 			return;
+		} 
+		
+		if (blocksToRender != null) {
+			this.nonemptyBlocks.clear();
+			this.nonemptyBlocks.addAll(blocksToRender);
 		}
 		
-		// if camera didn't move then don't change anything
-		if (cameraPos != null && cameraPos.equals(camera.getPosition())) {
-			return;
-		}
-		
-		Point3f cameraPosition = camera.getPosition();
+		Point3f cameraPosition = new Point3f(camera.getPosition());
 		Util.round(cameraPosition, 1);
 		renderArea = SuperBlock.midpointDistanceBlock(cameraPosition, camera.getFar() + 1);
 		cameraPos = cameraPosition;
-		
+
 		Set<QuadSampler> lastExplodedBlocks = new HashSet<QuadSampler>();
 		explodedBlocks.drainTo(lastExplodedBlocks);
-		List<QuadSampler> blocksToRemove = new LinkedList<QuadSampler>();
+		List<QuadSampler> nonVisibleBlocks = new LinkedList<QuadSampler>();	
+		List<QuadSampler> explodedBlocks = new LinkedList<QuadSampler>();
 		for (QuadSampler nonemptyBlock : nonemptyBlocks) {
 			if (!renderArea.containsBlock(nonemptyBlock)) {
-				blocksToRemove.add(nonemptyBlock);
+				nonVisibleBlocks.add(nonemptyBlock);
 			} else if (lastExplodedBlocks.contains(nonemptyBlock)) {
-				blocksToRemove.add(nonemptyBlock);
+				explodedBlocks.add(nonemptyBlock);
 			}
 		}
-		for (QuadSampler blockToRemove : blocksToRemove) {
-			nonemptyBlocks.remove(blockToRemove);
-			TerrainBlockRenderer block = blocks.get(blockToRemove.getMinPoint());
+
+		for (QuadSampler nonVisibleBlock : nonVisibleBlocks) {
+			nonemptyBlocks.remove(nonVisibleBlock);
+			TerrainBlockRenderer block = blocks.get(nonVisibleBlock.getMinPoint());
 			if (block != null) {
 				block.releaseGPUResources(gl);
 			}
-			blocks.remove(blockToRemove.getMinPoint());
+			blocks.remove(nonVisibleBlock.getMinPoint());
 		}
-		
+		for (QuadSampler explodedBlock : explodedBlocks) {
+			TerrainBlockRenderer block = blocks.get(explodedBlock.getMinPoint());
+			if (block != null) {
+				block.releaseGPUResources(gl);
+				blocks.remove(explodedBlock.getMinPoint());
+			}
+			
+		}
+
+		if (blocksToRender != null) {
+			return;
+		}
+
 		Tuple3f minPoint = renderArea.getMinPoint();
 		minPoint.x = (float) (Math.floor(minPoint.x/BLOCK_SIZE) * BLOCK_SIZE);
 		minPoint.y = (float) (Math.floor(minPoint.y/BLOCK_SIZE) * BLOCK_SIZE);
@@ -116,17 +133,16 @@ public class TerrainRenderer extends SceneObject implements Observer {
 				}
 			}
 		}
-		
+
 	}
-	
+
 	public void renderPolygons(GL2 gl, Camera camera) throws OpenGLException, IOException {
-		
 		if (!needSetup) {
 			return;
 		}
 		for (QuadSampler nonemptyBlock : nonemptyBlocks) {
 			Point3f lowerCorner = nonemptyBlock.getMinPoint();
-			
+
 			if (camera.inFrustum(nonemptyBlock)) {
 				if (!blocks.containsKey(lowerCorner)) {
 					TerrainBlockRenderer renderer = new TerrainBlockRenderer(gl, nonemptyBlock.getMinPoint(),
@@ -139,19 +155,17 @@ public class TerrainRenderer extends SceneObject implements Observer {
 						renderer.renderPolygons(gl);
 						OpenGLException.checkOpenGLError(gl);
 					}
-				}
+				} 
 			}
+			
 		}
+
+		needSetup = false;
 	}
 
 	public void renderTerrain(GL2 gl) throws OpenGLException {
+		//System.out.println(blocks.size());
 		for (TerrainBlockRenderer block : blocks.values()) {
-			if (block.needUpdate()) {
-				block.releaseGPUResources(gl);
-				block.setup(gl);
-				block.fillTexture3D(gl);
-				block.renderPolygons(gl);
-			}
 			if (!isTest) {
 				((TerrainMaterial) terrainMaterial).setDensityFunction(block.getTexture3D());
 				((TerrainMaterial) terrainMaterial).setLowerCorner(block.getMinPoint());
@@ -177,9 +191,9 @@ public class TerrainRenderer extends SceneObject implements Observer {
 	public void update(Observerable o) {
 		this.update(o, null);
 	}
-	
 
-	
+
+
 	@Override
 	public void update(Observerable o, Object obj) {
 		this.needSetup = true;

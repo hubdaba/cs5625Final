@@ -15,6 +15,7 @@ import javax.media.opengl.glu.GLU;
 import javax.vecmath.Point3f;
 import javax.vecmath.Tuple3f;
 
+import cs5625.deferred.apps.ExploreSceneController;
 import cs5625.deferred.materials.Texture;
 import cs5625.deferred.materials.Texture2D;
 import cs5625.deferred.materials.Texture3D;
@@ -38,6 +39,7 @@ public class TerrainBlockRenderer extends SuperBlock {
 	private static int mLowerCornerDensityUniformLocation;
 	private static int mNumVoxelsDensityUniformLocation;
 	private static int mBlockSizeDensityUniformLocation;
+	private static int mExplosionRadiusUniformLocation;
 
 	private static int mTerrainLowerCornerUniformLocation;
 	private static int mTerrainNumVoxelsUniformLocation;
@@ -55,7 +57,6 @@ public class TerrainBlockRenderer extends SuperBlock {
 	private int num_polygons = -1;
 	private boolean density_filled;
 	private boolean buffer_filled;
-	private boolean need_update;
 
 	private List<Explosion> explosions;
 
@@ -66,7 +67,6 @@ public class TerrainBlockRenderer extends SuperBlock {
 		this.numVoxels = numVoxels;
 		density_filled = false;
 		buffer_filled = false;
-		need_update = false;
 		setup(gl);
 		this.explosions = explosions;
 	}
@@ -105,7 +105,8 @@ public class TerrainBlockRenderer extends SuperBlock {
 				mExplosionPositionUniformLocation[i] =  mDensityShader.getUniformLocation(gl, uniformName);
 			}
 			mNumExplosionsUniformLocation = mDensityShader.getUniformLocation(gl, "NumExplosions");
-
+			mExplosionRadiusUniformLocation = mDensityShader.getUniformLocation(gl, "ExplosionRadius");
+			
 			mDensityShader.bind(gl);
 			gl.glUniform1i(mDensityShader.getUniformLocation(gl, "Permutation"), 0);
 			gl.glUniform1i(mDensityShader.getUniformLocation(gl, "Gradient"), 1);
@@ -159,7 +160,9 @@ public class TerrainBlockRenderer extends SuperBlock {
 			gl.glUniform1f(mNumVoxelsDensityUniformLocation, numVoxels);
 			gl.glUniform1f(mBlockSizeDensityUniformLocation, sideLength);
 			gl.glUniform1i(mNumExplosionsUniformLocation, explosions.size());
+			gl.glUniform1f(mExplosionRadiusUniformLocation, ExploreSceneController.EXPLOSION_RADIUS);
 			for (int j = 0; j < explosions.size(); j++) {
+				System.out.println("sending explosion ");
 				Point3f explosionPosition = explosions.get(j).getPosition();
 				gl.glUniform3f(mExplosionPositionUniformLocation[j], 
 						explosionPosition.x, explosionPosition.y, explosionPosition.z);
@@ -343,9 +346,7 @@ public class TerrainBlockRenderer extends SuperBlock {
 	}
 	
 	
-	public boolean needUpdate() {
-		return need_update;
-	}
+
 	
 
 }

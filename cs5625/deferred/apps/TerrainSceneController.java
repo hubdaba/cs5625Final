@@ -43,7 +43,7 @@ public class TerrainSceneController extends SceneController
 	@Override
 	public void initializeScene()
 	{
-		terrainRenderer = new TerrainRenderer(false, new ExplosionHandler());
+		terrainRenderer = new TerrainRenderer(false, new ExplosionHandler(), null);
 		mCamera.setFar(70f);
 		mCamera.addObserver(terrainRenderer);
 		try

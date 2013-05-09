@@ -32,13 +32,17 @@ public class ExplosionHandler implements Observerable {
 	}
 	
 	public List<Explosion> getExplosions(SuperBlock b) {
+		
 		List<Explosion> containedExplosions = new LinkedList<Explosion>();
 		for (Explosion explosion : explosions) {
 			SuperBlock enclosingBlock =
 						SuperBlock.midpointDistanceBlock(explosion.getPosition(), explosion.getRadius());
 			if (b.containsBlock(enclosingBlock)) {
 				containedExplosions.add(explosion);
+			} else {
+				System.out.println("MISSED " + explosion.getPosition().distance(b.getMidPoint()));
 			}
+			
 		}
 		return containedExplosions;
 	}
