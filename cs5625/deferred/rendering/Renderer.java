@@ -367,7 +367,8 @@ public class Renderer
 		if (obj instanceof SmokeSystem)
 		{
 			// Render smoke particles
-			bindAttributes(gl, mSmokeShader, (SmokeSystem)obj);
+			gl.glEnableClientState(GL2.GL_NORMAL_ARRAY);
+			gl.glNormalPointer(GL2.GL_FLOAT, 0, ((SmokeSystem)obj).getNormalData());
 			OpenGLException.checkOpenGLError(gl);
 			
 			gl.glUniform1f(mSmokeNearPlaneLocation, camera.getNear());

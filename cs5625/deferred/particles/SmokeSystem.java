@@ -14,49 +14,36 @@ import cs5625.deferred.rendering.Attributable;
 import cs5625.deferred.scenegraph.SceneObject;
 
 /* A straightforward abstraction, just a particle system for smoke objects */
-public class SmokeSystem extends SceneObject implements Attributable {
+public class SmokeSystem extends SceneObject {
 	private List<Particle> P = new ArrayList<Particle>();
 	private boolean needUpdate = true;
 	private float tau = 0.4f;
 	
-	public HashMap<String, FloatBuffer> vertexAttribData = new HashMap<String, FloatBuffer>();
+	//public HashMap<String, FloatBuffer> vertexAttribData = new HashMap<String, FloatBuffer>();
+	public FloatBuffer normals;
 
-	@Override
-	public String[] getRequiredVertexAttributes() {
-		// TODO Auto-generated method stub
+	public FloatBuffer getNormalData() {
 		updateAttribs();
-		String[] strs = new String[vertexAttribData.size()];
-		int i=0;
-		for (String s : vertexAttribData.keySet()) {
-			strs[i++] = s;
-		}
-		return strs;
-	}
-
-	@Override
-	public HashMap<String, FloatBuffer> getVertexAttribData() {
-		// TODO If an update is needed, do it.
-		updateAttribs();
-		
-		return vertexAttribData;
+		return normals;
 	}
 
 	private void updateAttribs() {
 		if (needUpdate) {
 			//update vertex attributes
-			FloatBuffer radii = Buffers.newDirectFloatBuffer(P.size());
+			normals = Buffers.newDirectFloatBuffer(4 * P.size());
 			
+			// Use the normal vector to pass through data
 			for (Particle p : P) {
-				radii.put(p.radius);
+				normals.put(p.radius);
+				normals.put(0.0f);
+				normals.put(0.0f);
+				normals.put(0.0f);
 			}
-			radii.rewind();
-			vertexAttribData = new HashMap<>();
-			vertexAttribData.put("radius", radii);
+			normals.rewind();
 			needUpdate = false;
 		}
 	}
 
-	@Override
 	public int getVertexCount() {
 		// TODO Auto-generated method stub
 		return P.size();
