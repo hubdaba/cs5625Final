@@ -294,11 +294,22 @@ public class Renderer
 		/* Save state before we disable depth testing for blitting. */
 		gl.glPushAttrib(GL2.GL_ENABLE_BIT);
 		
-		/* Disable depth test and blend, since we just want to replace the contents of the framebuffer.
-		 * Since we are rendering an opaque fullscreen quad here, we don't bother clearing the buffer
-		 * first. */
-		gl.glDisable(GL2.GL_DEPTH_TEST);
-		gl.glDisable(GL2.GL_BLEND);
+		/* Expect pre-multiplied alpha from the shader. This allows us to support both
+         * several types of blending in a single pass:
+         *
+         *       no blending: gl_FragColor = vec4(color, 1.0);
+         *    alpha blending: gl_FragColor = vec4(color * alpha, alpha);
+         * additive blending: gl_FragColor = vec4(color, 0.0);
+         *
+         * The default particle shader uses alpha blending, but you can subclass ParticleMaterial
+         * and write your own shader; if it follows this alpha convention it will "just work".
+         */
+        gl.glBlendFunc(GL2.GL_ONE, GL2.GL_ONE_MINUS_SRC_ALPHA);
+        gl.glEnable(GL2.GL_BLEND);
+
+        /* Disable writing of depth values by these particles. They will still clip against the
+         * opaque scene geometry, but not against other particles. */
+        gl.glDepthMask(false);
 		
 		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).bind(gl, 0);
 		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, 1);
@@ -357,15 +368,16 @@ public class Renderer
 		{
 			// Render smoke particles
 			bindAttributes(gl, mSmokeShader, (SmokeSystem)obj);
-
+			OpenGLException.checkOpenGLError(gl);
+			
 			gl.glUniform1f(mSmokeNearPlaneLocation, camera.getNear());
 			gl.glUniform1f(mSmokeTauLocation, ((SmokeSystem)obj).getTau());
 			gl.glBegin(GL2.GL_POINTS);
-			for (Point3d r : ((SmokeSystem)obj).getParticlePositions()) {
+			for (Point3f r : ((SmokeSystem)obj).getParticlePositions()) {
 				gl.glVertex3d(r.x, r.y, r.z);
 			}
 			gl.glEnd();
-			System.out.println("ERH MA GERD- PERTICLES!!!--------------------------------------------------------------");
+			OpenGLException.checkOpenGLError(gl);
 		}
 		
 		/* Render this object's children. */
@@ -647,12 +659,10 @@ public class Renderer
 	void bindAttributes(GL2 gl, ShaderProgram shader, Attributable att) throws OpenGLException
 	{
 		HashMap<String, FloatBuffer> attribs = att.getVertexAttribData();
-		System.out.println("There are so many required attributes: "+att.getRequiredVertexAttributes().length);
 		for (String attrib : att.getRequiredVertexAttributes())
 		{
 			/* Ignore attributes which aren't actually used in the shader. */
 			int location = shader.getAttribLocation(gl, attrib);
-			System.out.println("location is "+location);
 			if (location < 0)
 			{
 				continue;
@@ -669,12 +679,8 @@ public class Renderer
 			else
 			{
 				gl.glEnableVertexAttribArray(location);
+				System.out.println(attribData.capacity());
 				gl.glVertexAttribPointer(location, attribData.capacity() / att.getVertexCount(), GL2.GL_FLOAT, false, 0, attribData);
-			}
-
-			System.out.println("One attribute is: "+attrib);
-			if (attrib.equals("radius")) {
-				System.out.println("Adding a radius");
 			}
 		}
 	}

@@ -2,10 +2,11 @@ package cs5625.deferred.particles;
 
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 
-import javax.vecmath.Point3d;
+import javax.vecmath.Point3f;
 
 import com.jogamp.common.nio.Buffers;
 
@@ -39,7 +40,7 @@ public class SmokeSystem extends SceneObject implements Attributable {
 		
 		return vertexAttribData;
 	}
-	
+
 	private void updateAttribs() {
 		if (needUpdate) {
 			//update vertex attributes
@@ -61,8 +62,8 @@ public class SmokeSystem extends SceneObject implements Attributable {
 		return P.size();
 	}
 	
-	public List<Point3d> getParticlePositions() {
-		List<Point3d> locs = new ArrayList<Point3d>(P.size());
+	public List<Point3f> getParticlePositions() {
+		List<Point3f> locs = new ArrayList<Point3f>(P.size());
 		for (Particle p : P) {
 			locs.add(p.x);
 		}
@@ -76,5 +77,17 @@ public class SmokeSystem extends SceneObject implements Attributable {
 	
 	public float getTau() {
 		return tau;
+	}
+	
+	public Iterable<Particle> particleIterator() {
+		return P;
+	}
+	
+	public void removeParticles(Collection<Particle> toRemove) {
+		needUpdate = true;
+		P.removeAll(toRemove);
+	}
+	public int size() {
+		return P.size();
 	}
 }

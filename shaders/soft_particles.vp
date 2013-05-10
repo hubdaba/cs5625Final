@@ -10,6 +10,7 @@ uniform float NearPlane;
 uniform float Tau;
 
 attribute float radius;
+//attribute vec4 gl_MultiTexCoord0;
 
 varying float rad;
 
@@ -25,6 +26,6 @@ void main() {
  	//r = radius;
 	//TexCoord = gl_MultiTexCoord0.xy;
 	
-	rad = 1.0;//radius;
+	rad = radius; //gl_MultiTexCoord0.x;
 	gl_Position = gl_Vertex;
 } 

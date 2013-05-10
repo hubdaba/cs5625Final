@@ -16,6 +16,8 @@ varying float z;
 varying vec2 TexCoord0;
  
 void main() {
+	vec4 color = vec4(0.0);
+
 	float alpha = 0.0;
 	float x = 2.0*r*(TexCoord0.x-0.5);
 	float y = 2.0*r*(TexCoord0.y-0.5);
@@ -40,9 +42,7 @@ void main() {
  		
  		alpha = max(1.0-(x*x+y*y)/(r*r), 0.0);
  	} 
- 	//alpha=1.0;
- 	//alpha = (x+r)*(y+r)/(4.0*r*r);
- 	//gl_FragColor = vec4(TexCoord.xy, 0.0, 1.0);
- 	//gl_FragColor = vec4(alpha, alpha, alpha, 1.0);
- 	gl_FragColor = vec4(1.0, 1.0, 1.0, alpha);
+	color = vec4(1.0, 1.0, 1.0, alpha);
+	
+ 	gl_FragColor = vec4(color.rgb*color.a, color.a);
 }
