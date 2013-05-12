@@ -8,18 +8,27 @@ import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
 import java.util.LinkedList;
 import java.util.List;
 
 import javax.swing.Timer;
 import javax.vecmath.AxisAngle4f;
+import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
 import javax.vecmath.Vector2f;
 import javax.vecmath.Vector3f;
 
 import cs5625.deferred.misc.Util;
+import cs5625.deferred.particles.Particle;
+import cs5625.deferred.particles.SmokeSource;
+import cs5625.deferred.particles.SmokeSystem;
 import cs5625.deferred.scenegraph.PointLight;
 import cs5625.deferred.scenegraph.TerrainRenderer;
 
@@ -45,7 +54,7 @@ public class ExploreSceneController extends SceneController
 	
 	/* Keeps track of camera's orbit position. Latitude and longitude are in degrees. */
 	private float mCameraLongitude = 50.0f, mCameraLatitude = -40.0f;
-	private Point3f mCameraPosition = new Point3f(12f, 12f, 12f);
+	private Point3f mCameraPosition = new Point3f(0f, 0f, 0f);
 	private Vector2f mCameraVelocity = new Vector2f();
 	private Vector3f rightVector = new Vector3f();
 	private Vector3f forwardVector = new Vector3f();
@@ -53,7 +62,7 @@ public class ExploreSceneController extends SceneController
 	private float tau = 0.65f;
 	private float decay = 0.999f;	// Just for sanity, in case a call is missed (and it helped in diagnostics)
 	private Vector2f targetVelocity = new Vector2f();
-	private float maxSpeed = 3.0f;
+	private float maxSpeed = 5.0f;
 	
 	private float rotScale = 0.3f;
 
@@ -89,6 +98,31 @@ public class ExploreSceneController extends SceneController
 
 			light.setPosition(new Point3f(50.0f, 180.0f, 100.0f));
 			mSceneRoot.addChild(light);	
+			
+			/*
+			SmokeSystem smoke = new SmokeSystem();
+			Particle p = new Particle();
+			p.x = new Point3d(0.0, 2.0, 0.0);
+			p.radius = 4f;
+			smoke.addParticle(p);
+			p = new Particle();
+			p.x = new Point3d(0.0, -2.0, 0.0);
+			p.radius = 4f;
+			smoke.addParticle(p); */
+			
+			/*
+			SmokeSystem smoke = new SmokeSystem();
+			int N = 20;
+			float R = 10.0f;
+			for (int n=0; n<N; n++) {
+				Particle p = new Particle();
+				double theta = ((double)n)*Math.PI*2.0/((double)N); 
+				p.x = new Point3f((float)(R*Math.cos(theta)), 1.0f+(float)(0.5*Math.cos(15.0*theta)), (float)(R*Math.sin(theta)));
+				p.radius = 1.0f;
+				smoke.addParticle(p); 
+			} */
+			SmokeSource smoke = new SmokeSource();
+			mSceneRoot.addChild(smoke);
 		}
 		catch (Exception err)
 		{
@@ -114,6 +148,8 @@ public class ExploreSceneController extends SceneController
 		mCameraVelocity.scaleAdd(1.0f-tau, targetVelocity, mCameraVelocity);
 		mCameraPosition.scaleAdd((float)dt * mCameraVelocity.x, rightVector, mCameraPosition);
 		mCameraPosition.scaleAdd((float)dt * mCameraVelocity.y, forwardVector, mCameraPosition);
+		
+		mSceneRoot.animate((float)dt);
 		
 		updateCamera();
 		requiresRender();
@@ -226,4 +262,31 @@ public class ExploreSceneController extends SceneController
 		}
 	}
 
+}
+interface CameraWatcher extends MouseListener, MouseMotionListener, MouseWheelListener, KeyListener {}
+class WalkingCamera implements CameraWatcher {
+	public void mouseClicked(MouseEvent arg0) {}
+	public void mouseEntered(MouseEvent arg0) {}
+	public void mouseExited(MouseEvent arg0) {}
+	public void mousePressed(MouseEvent arg0) {}
+	public void mouseReleased(MouseEvent arg0) {}
+	public void mouseDragged(MouseEvent arg0) {}
+	public void mouseMoved(MouseEvent arg0) {}
+	public void mouseWheelMoved(MouseWheelEvent e) {}
+	public void keyPressed(KeyEvent arg0) {}
+	public void keyReleased(KeyEvent arg0) {}
+	public void keyTyped(KeyEvent arg0) {}
+}
+class FlyingCamera implements CameraWatcher {
+	public void mouseClicked(MouseEvent arg0) {}
+	public void mouseEntered(MouseEvent arg0) {}
+	public void mouseExited(MouseEvent arg0) {}
+	public void mousePressed(MouseEvent arg0) {}
+	public void mouseReleased(MouseEvent arg0) {}
+	public void mouseDragged(MouseEvent arg0) {}
+	public void mouseMoved(MouseEvent arg0) {}
+	public void mouseWheelMoved(MouseWheelEvent e) {}
+	public void keyPressed(KeyEvent arg0) {}
+	public void keyReleased(KeyEvent arg0) {}
+	public void keyTyped(KeyEvent arg0) {}
 }

@@ -1,14 +1,12 @@
 package cs5625.deferred.misc;
 
 import java.util.ArrayList;
-import java.util.List;
 
 import javax.media.opengl.GL2;
 import javax.vecmath.Matrix3f;
 import javax.vecmath.Matrix4f;
 import javax.vecmath.Quat4f;
 import javax.vecmath.Tuple3f;
-import javax.vecmath.Vector3f;
 
 import cs5625.deferred.materials.Texture2D;
 

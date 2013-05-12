@@ -1,13 +1,11 @@
 package cs5625.deferred.scenegraph;
 
 import geometry.Explosion;
-import geometry.ExplosionHandler.ExplosionException;
 import geometry.SuperBlock;
 
 import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
-import java.util.LinkedList;
 import java.util.List;
 
 import javax.media.opengl.GL2;

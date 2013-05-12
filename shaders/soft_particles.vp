@@ -1,0 +1,32 @@
+/** 
+ *
+ * soft_particles.vp
+ * 
+ */
+ 
+
+uniform int EnableSoftParticles;
+uniform float NearPlane;
+uniform float Tau;
+
+//attribute float radius;
+//attribute vec4 gl_MultiTexCoord0;
+
+varying float rad;
+
+void main() {
+	// Do the transformation, without the rotation, so particles always face the camera
+	// ACTUALLY- I actually made billboards perpendicular to the camera in world space, so do it all out
+ 	//vec4 newVert = gl_Vertex + (gl_ModelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0f)) - vec4(0.0, 0.0, 0.0, 1.0f);
+ 	//vec4 newVert = gl_ModelViewMatrix * gl_Vertex;
+ 	//gl_Position = gl_ProjectionMatrix * newVert;
+ 	//gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * gl_Vertex;
+ 	
+ 	//z = newVert.z/newVert.w;
+ 	//r = radius;
+	//TexCoord = gl_MultiTexCoord0.xy;
+	
+	// New approach- pass parameters through in the normal vector, which is otherwise unused.
+	rad = gl_Color.z; //radius; //gl_MultiTexCoord0.x;
+	gl_Position = gl_Vertex;
+} 

@@ -7,8 +7,6 @@ import javax.vecmath.Point3f;
 import javax.vecmath.Tuple3f;
 import javax.vecmath.Vector3f;
 
-import cs5625.deferred.misc.Util;
-
 public class SuperBlock {
 	protected Point3f minPoint;
 	protected float sideLength;

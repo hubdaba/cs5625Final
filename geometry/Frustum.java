@@ -1,6 +1,5 @@
 package geometry;
 
-import javax.vecmath.Tuple3f;
 
 public interface Frustum  {
 	

@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
 
 import javax.imageio.ImageIO;
 import javax.media.opengl.GL2;

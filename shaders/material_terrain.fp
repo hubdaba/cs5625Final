@@ -1,4 +1,4 @@
-/* ID of Blinn-Phong material, so the lighting shader knows what material
+/* ID of Terrain material, so the lighting shader knows what material
  * this pixel is. */
 const int TERRAIN_MATERIAL_ID = 4;
 

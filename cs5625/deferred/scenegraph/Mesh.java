@@ -14,6 +14,7 @@ import com.jogamp.common.nio.Buffers;
 import cs5625.deferred.materials.BlinnPhongMaterial;
 import cs5625.deferred.materials.Material;
 import cs5625.deferred.misc.OpenGLResourceObject;
+import cs5625.deferred.rendering.Attributable;
 
 /**
  * Mesh.java
@@ -26,7 +27,7 @@ import cs5625.deferred.misc.OpenGLResourceObject;
  * @author Asher Dunn (ad488)
  * @date 2012-04-06
  */
-public abstract class Mesh implements OpenGLResourceObject
+public abstract class Mesh implements OpenGLResourceObject, Attributable
 {
 	protected static float EPS = 1e-7f;
 	
@@ -379,5 +380,13 @@ public abstract class Mesh implements OpenGLResourceObject
 	public void releaseGPUResources(GL2 gl)
 	{
 		mMaterial.releaseGPUResources(gl);
+	}
+	
+
+	public String[] getRequiredVertexAttributes() {
+		return mMaterial.getRequiredVertexAttributes();
+	}
+	public HashMap<String, FloatBuffer> getVertexAttribData() {
+		return vertexAttribData;
 	}
 }

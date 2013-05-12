@@ -6,10 +6,8 @@ import geometry.SuperBlock;
 import java.util.LinkedList;
 import java.util.List;
 
-import javax.vecmath.Matrix3f;
 import javax.vecmath.Matrix4f;
 import javax.vecmath.Point3f;
-import javax.vecmath.Tuple3f;
 
 import cs5625.deferred.misc.Observer;
 import cs5625.deferred.misc.Observerable;
