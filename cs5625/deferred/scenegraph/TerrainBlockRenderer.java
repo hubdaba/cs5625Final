@@ -325,13 +325,13 @@ public class TerrainBlockRenderer extends SuperBlock {
 		for (int x = 0; x <= 3; x++) {
 			gl.glTexCoord3d(0.5, 0.5, 1.0);
 			gl.glNormal3d(0.0, 0.0, 1.0);
-			gl.glVertex3d(0.5, 0.5, 1.0);
+			gl.glVertex3d(0.5 * TerrainRenderer.BLOCK_SIZE, 0.5 * TerrainRenderer.BLOCK_SIZE, 1.0 * TerrainRenderer.BLOCK_SIZE);
 			gl.glTexCoord3d(verts[x][0], verts[x][1], verts[x][2]);
 			gl.glNormal3d(verts[x][0], verts[x][1], verts[x][2]);
-			gl.glVertex3d(verts[x][0], verts[x][1], verts[x][2]);
+			gl.glVertex3d(verts[x][0] * TerrainRenderer.BLOCK_SIZE, verts[x][1] * TerrainRenderer.BLOCK_SIZE, verts[x][2] * TerrainRenderer.BLOCK_SIZE);
 			gl.glTexCoord3d(verts[(x+1)%4][0], verts[(x+1)%4][1], verts[(x+1)%4][2]);
 			gl.glNormal3d(verts[(x+1)%4][0], verts[(x+1)%4][1], verts[(x+1)%4][2]);
-			gl.glVertex3d(verts[(x+1)%4][0], verts[(x+1)%4][1], verts[(x+1)%4][2]);
+			gl.glVertex3d(verts[(x+1)%4][0] * TerrainRenderer.BLOCK_SIZE, verts[(x+1)%4][1] * TerrainRenderer.BLOCK_SIZE, verts[(x+1)%4][2] * TerrainRenderer.BLOCK_SIZE);
 		}
 		gl.glEnd();
 

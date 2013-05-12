@@ -143,7 +143,7 @@ public class Renderer
 			
 			/* 2. Fill the particle buffer, utilizing the depth values aquired by filling
 			 * the GBuffer */
-			fillSmokeBuffer(gl, sceneRoot, camera);
+			//fillSmokeBuffer(gl, sceneRoot, camera);
 			
 			/* 3. Apply deferred lighting to the g-buffer. At this point, the opaque scene has been rendered. */
 			lightGBuffer(gl, camera);

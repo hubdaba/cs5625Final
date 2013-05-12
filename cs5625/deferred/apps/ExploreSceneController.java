@@ -54,7 +54,7 @@ public class ExploreSceneController extends SceneController
 	
 	/* Keeps track of camera's orbit position. Latitude and longitude are in degrees. */
 	private float mCameraLongitude = 50.0f, mCameraLatitude = -40.0f;
-	private Point3f mCameraPosition = new Point3f(0f, 0f, 0f);
+	private Point3f mCameraPosition = new Point3f(12f, 12f, 12f);
 	private Vector2f mCameraVelocity = new Vector2f();
 	private Vector3f rightVector = new Vector3f();
 	private Vector3f forwardVector = new Vector3f();
@@ -121,8 +121,8 @@ public class ExploreSceneController extends SceneController
 				p.radius = 1.0f;
 				smoke.addParticle(p); 
 			} */
-			SmokeSource smoke = new SmokeSource();
-			mSceneRoot.addChild(smoke);
+		//	SmokeSource smoke = new SmokeSource();
+			//mSceneRoot.addChild(smoke);
 		}
 		catch (Exception err)
 		{

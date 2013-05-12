@@ -35,7 +35,7 @@ void main() {
  				ds = B - max(F, NearPlane);
  			}
  			if (ds > 0.0) {
- 				alpha = max(0.0, 1.0 - exp(-Tau * (1-d/r) * ds));
+ 				alpha = max(0.0, 1.0 - exp(-Tau * (1.0-d/r) * ds));
  			}
  		}
  	} else { 

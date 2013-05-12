@@ -34,13 +34,9 @@ public class Camera extends SceneObject implements Observerable, Frustum
 	private float mFar = 100.0f;
 
 	private List<Observer> observers;
-	private List<Point3f> frontCorners;
-	private List<Point3f> backCorners;
 
 	public Camera() {
 		super();
-		frontCorners = new LinkedList<Point3f>();
-		backCorners = new LinkedList<Point3f>();
 		observers = new LinkedList<Observer>();
 	}
 

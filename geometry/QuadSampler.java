@@ -45,7 +45,7 @@ public class QuadSampler extends SuperBlock {
 
 	
 	public boolean hasPolygons() {
-		/*boolean hasNeg = false;
+		boolean hasNeg = false;
 		boolean hasPos = false;
 		float voxelSize = sideLength/10;
 		for (float x = minPoint.x; x <= minPoint.x + sideLength; x+= voxelSize) {
@@ -64,8 +64,8 @@ public class QuadSampler extends SuperBlock {
 				}
 			}
 		}
-		return false;*/
-		return true;
+		return false;
+		//return true;
 	}
 
 	@Override
