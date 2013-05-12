@@ -366,19 +366,32 @@ public class Renderer
 		/* Render this object as appropriate for its type. */
 		if (obj instanceof SmokeSystem)
 		{
-			// Render smoke particles
-			gl.glEnableClientState(GL2.GL_NORMAL_ARRAY);
-			gl.glNormalPointer(GL2.GL_FLOAT, 0, ((SmokeSystem)obj).getNormalData());
+			// Render smoke particles			
+			gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);
+			gl.glVertexPointer(3, GL2.GL_FLOAT, 0, ((SmokeSystem)obj).getVertexData());
+			//gl.glEnableClientState(GL2.GL_COLOR_ARRAY);
+			//gl.glColorPointer(3, GL2.GL_FLOAT, 0, ((SmokeSystem)obj).getNormalData());
 			OpenGLException.checkOpenGLError(gl);
 			
 			gl.glUniform1f(mSmokeNearPlaneLocation, camera.getNear());
 			gl.glUniform1f(mSmokeTauLocation, ((SmokeSystem)obj).getTau());
+			
+			
 			gl.glBegin(GL2.GL_POINTS);
 			for (Point3f r : ((SmokeSystem)obj).getParticlePositions()) {
 				gl.glVertex3d(r.x, r.y, r.z);
 			}
-			gl.glEnd();
+			gl.glEnd(); 
+			
+			//gl.glDrawElements(GL2.GL_POINTS, 
+			//		  ((SmokeSystem)obj).getVertexCount(),	//mesh.getVerticesPerPolygon() * mesh.getPolygonCount() 
+			//		  GL2.GL_UNSIGNED_INT, 
+			//		  ((SmokeSystem)obj).getPolygonData());
+			//gl.glDrawArrays(GL2.GL_POINTS, 0, ((SmokeSystem)obj).getVertexCount());
+			
 			OpenGLException.checkOpenGLError(gl);
+			gl.glDisableClientState(GL2.GL_VERTEX_ARRAY);
+			//gl.glDisableClientState(GL2.GL_COLOR_ARRAY);
 		}
 		
 		/* Render this object's children. */

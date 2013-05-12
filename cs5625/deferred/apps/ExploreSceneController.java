@@ -109,8 +109,8 @@ public class ExploreSceneController extends SceneController
 			p.x = new Point3d(0.0, -2.0, 0.0);
 			p.radius = 4f;
 			smoke.addParticle(p); */
-			//SmokeSource smoke = new SmokeSource();
 			
+			/*
 			SmokeSystem smoke = new SmokeSystem();
 			int N = 20;
 			float R = 10.0f;
@@ -120,9 +120,9 @@ public class ExploreSceneController extends SceneController
 				p.x = new Point3f((float)(R*Math.cos(theta)), 1.0f+(float)(0.5*Math.cos(15.0*theta)), (float)(R*Math.sin(theta)));
 				p.radius = 1.0f;
 				smoke.addParticle(p); 
-			}
-			
-			//mSceneRoot.addChild(smoke);
+			} */
+			SmokeSource smoke = new SmokeSource();
+			mSceneRoot.addChild(smoke);
 		}
 		catch (Exception err)
 		{

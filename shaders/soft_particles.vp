@@ -27,6 +27,6 @@ void main() {
 	//TexCoord = gl_MultiTexCoord0.xy;
 	
 	// New approach- pass parameters through in the normal vector, which is otherwise unused.
-	rad = gl_Normal.x; //1.0; //radius; //gl_MultiTexCoord0.x;
+	rad = gl_Color.z; //radius; //gl_MultiTexCoord0.x;
 	gl_Position = gl_Vertex;
 } 
