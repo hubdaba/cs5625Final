@@ -162,7 +162,6 @@ public class TerrainBlockRenderer extends SuperBlock {
 			gl.glUniform1i(mNumExplosionsUniformLocation, explosions.size());
 			gl.glUniform1f(mExplosionRadiusUniformLocation, ExploreSceneController.EXPLOSION_RADIUS);
 			for (int j = 0; j < explosions.size(); j++) {
-				System.out.println("sending explosion ");
 				Point3f explosionPosition = explosions.get(j).getPosition();
 				gl.glUniform3f(mExplosionPositionUniformLocation[j], 
 						explosionPosition.x, explosionPosition.y, explosionPosition.z);

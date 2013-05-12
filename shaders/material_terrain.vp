@@ -4,6 +4,8 @@
 /* Pass eyespace position and normal, and texcoord, to the fragment shader. */
 varying vec3 EyespacePosition;
 varying vec3 EyespaceNormal;
+varying vec3 WorldspacePosition;
+varying vec3 WorldspaceNormal;
 
 uniform sampler3D DensityFunction;
 uniform vec3 LowerCorner;
@@ -44,16 +46,17 @@ void main()
 	}			
 	 			
 	 					
-	gradient = normalize(-gradient);
+	vec3 eyespaceGradient = normalize(gl_NormalMatrix * -gradient);
 	
 	/* Standard vertex transform. */
 	gl_Position = ftransform();
 	
 	
 	// Transform stuff into eye space and store in varyings.
+	WorldspacePosition = gl_Vertex.xyz;
 	EyespacePosition = vec3(gl_ModelViewMatrix * gl_Vertex);
-   //EyespaceNormal = vec3(1.0, 0.0, 0.0);
-   EyespaceNormal = gradient;
+   WorldspaceNormal = normalize(-gradient);
+   EyespaceNormal = eyespaceGradient;
   
 	
 }

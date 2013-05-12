@@ -32,11 +32,14 @@ public class QuadSampler extends SuperBlock {
 	
 
 	public float evaluate(Point3f point) {
-		
-
 		//int[] val = PerlinNoise.noise[(int)multPoint.x][(int)multPoint.y][(int)multPoint.z];
 		//float val = (float) (Math.pow(10.0 - Math.sqrt(point.x * point.x + point.y * point.y), 2) + point.z * point.z - 9.0);
-		float val = point.y + PerlinNoise.noise(point);
+		Point3f point2 = new Point3f(point);
+		point2.scale(.2f);
+		Point3f point3 = new Point3f(point);
+		point3.scale(0.01f);
+		float val = point.y + PerlinNoise.noise(point) + 10 * PerlinNoise.noise(point2)
+				+ 20 * PerlinNoise.noise(point3);
 		return (float) (val);
 	}
 
@@ -44,7 +47,7 @@ public class QuadSampler extends SuperBlock {
 	public boolean hasPolygons() {
 		boolean hasNeg = false;
 		boolean hasPos = false;
-		float voxelSize = sideLength/20;
+		float voxelSize = sideLength/10;
 		for (float x = minPoint.x; x <= minPoint.x + sideLength; x+= voxelSize) {
 			for (float y = minPoint.y; y <= minPoint.y + sideLength; y += voxelSize) {
 				for (float z = minPoint.z; z <= minPoint.z + sideLength; z += voxelSize) {

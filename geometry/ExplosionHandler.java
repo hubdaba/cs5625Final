@@ -39,8 +39,6 @@ public class ExplosionHandler implements Observerable {
 						SuperBlock.midpointDistanceBlock(explosion.getPosition(), explosion.getRadius());
 			if (b.containsBlock(enclosingBlock)) {
 				containedExplosions.add(explosion);
-			} else {
-				System.out.println("MISSED " + explosion.getPosition().distance(b.getMidPoint()));
 			}
 			
 		}

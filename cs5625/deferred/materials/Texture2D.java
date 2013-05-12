@@ -116,7 +116,7 @@ public class Texture2D extends Texture
 		Buffer imageData = createBufferFromImage(image);
 		int width = image.getWidth();
 		int height = image.getHeight();
-
+		
 		/* Initialize with that data. */
 		result.initialize(gl, Format.RGBA, Datatype.INT8, width, height, !(isPOT(width) && isPOT(height)), imageData);
 		return result;
