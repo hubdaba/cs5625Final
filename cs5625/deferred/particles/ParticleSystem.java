@@ -20,6 +20,8 @@ public class ParticleSystem extends Mesh {
 	//public HashMap<String, FloatBuffer> vertexAttribData = new HashMap<String, FloatBuffer>();
 
 	protected boolean mIsOpaque = false;
+	
+	int numParticles = 0;
 
 	private void updateAttribs() {
 		if (needUpdate) {
@@ -49,6 +51,8 @@ public class ParticleSystem extends Mesh {
 			}
 			mPolygonData.rewind();
 			needUpdate = false;
+			
+			numParticles = P.size();
 		}
 	}
 
@@ -71,6 +75,7 @@ public class ParticleSystem extends Mesh {
 	}
 	
 	public Iterable<Particle> particleIterator() {
+		updateAttribs();
 		return P;
 	}
 	
@@ -79,7 +84,7 @@ public class ParticleSystem extends Mesh {
 		P.removeAll(toRemove);
 	}
 	public int size() {
-		return P.size();
+		return numParticles;
 	}
 
 	

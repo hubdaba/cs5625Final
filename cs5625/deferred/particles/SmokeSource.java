@@ -20,9 +20,9 @@ public class SmokeSource extends Geometry {
 	float radius = 1.0f;
 	float startVDev = 0.6f;
 	float maxLife = 15.0f;
-	public Point3f origin = new Point3f();
-	
 	float maxTau = 0.4f;
+	
+	public Point3f origin = new Point3f();
 	
 	ParticleSystem PS;
 	

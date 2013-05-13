@@ -31,9 +31,11 @@ public class QuadSampler extends SuperBlock {
 	
 	
 
-	public float evaluate(Point3f point) {
+	public static float evaluate(Point3f point) {
 		//int[] val = PerlinNoise.noise[(int)multPoint.x][(int)multPoint.y][(int)multPoint.z];
 		//float val = (float) (Math.pow(10.0 - Math.sqrt(point.x * point.x + point.y * point.y), 2) + point.z * point.z - 9.0);
+		
+		// TODO: INCLUDE EXPLOSIONS!
 		Point3f point2 = new Point3f(point);
 		point2.scale(.2f);
 		Point3f point3 = new Point3f(point);
