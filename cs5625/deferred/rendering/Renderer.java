@@ -2,6 +2,7 @@ package cs5625.deferred.rendering;
 
 import java.io.IOException;
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -13,6 +14,8 @@ import javax.vecmath.Color3f;
 import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
+
+import com.jogamp.common.nio.Buffers;
 
 import cs5625.deferred.materials.Material;
 import cs5625.deferred.materials.Texture.Datatype;
@@ -103,17 +106,6 @@ public class Renderer
 	/* The size of the light uniform arrays in the ubershader. 
 	 * This is queried directly from the shader file. */
 	private int mMaxLightsInUberShader;
-	
-	
-	/*
-	 * Shaders and parameters for the different particle effects.  
-	 * It was not straightforward to abstract these away to some other
-	 * class- there is too much overlap, so here it is, hardcoded in the 
-	 * renderer.
-	 */
-	ShaderProgram mSmokeShader;
-	private int mSmokeEnableSoftParticlesLocation = -1, mSmokeNearPlaneLocation = -1, mSmokeTauLocation = -1;
-	private int mSmokeEnableSoftParticles = 1;
 	
 	
 	boolean mRenderingOpaque = true;
@@ -290,7 +282,7 @@ public class Renderer
 	
 	/**
 	 * Applies lighting to an already-filled gbuffer to produce the final scene. Output is sent 
-	 * to the main framebuffer of the view/window.
+	 * to the main framebuffer of the view/window
 	 * 
 	 * @param gl The OpenGL state.
 	 * @param camera Camera from whose perspective we are rendering.
@@ -450,7 +442,7 @@ public class Renderer
 		gl.glPushAttrib(GL2.GL_ALL_ATTRIB_BITS);
 		gl.glPushClientAttrib((int)GL2.GL_CLIENT_ALL_ATTRIB_BITS);
 		
-		if (mRenderingOpaque) {
+		if (!mRenderingOpaque) {
 			/* Expect pre-multiplied alpha from the shader. This allows us to support both
 	         * several types of blending in a single pass:
 	         *
@@ -467,8 +459,6 @@ public class Renderer
 	        /* Disable writing of depth values by these particles. They will still clip against the
 	         * opaque scene geometry, but not against other particles. */
 	        gl.glDepthMask(false);
-	        
-	        System.out.println("HERE!-----------------------------------------------------");
 		}
 		
 		/* Activate the material. */
@@ -513,9 +503,9 @@ public class Renderer
 		
 		/* Render polygons. */
 		gl.glDrawElements(getOpenGLPrimitiveType(mesh.getVerticesPerPolygon()), 
-						  mesh.getVerticesPerPolygon() * mesh.getPolygonCount(), 
-						  GL2.GL_UNSIGNED_INT, 
-						  mesh.getPolygonData());
+				mesh.getVerticesPerPolygon() * mesh.getPolygonCount(), 
+				GL2.GL_UNSIGNED_INT, 
+				mesh.getPolygonData());
 		
 		unbindRequiredMeshFBOs(gl, mesh);
 		
@@ -601,7 +591,6 @@ public class Renderer
 			else
 			{
 				gl.glEnableVertexAttribArray(location);
-				System.out.println(attribData.capacity());
 				gl.glVertexAttribPointer(location, attribData.capacity() / att.getVertexCount(), GL2.GL_FLOAT, false, 0, attribData);
 			}
 		}
@@ -757,19 +746,6 @@ public class Renderer
 			/* Load the material used to render mesh edges (e.g. creases for subdivs). */
 			mWireframeMaterial = new UnshadedMaterial(new Color3f(0.8f, 0.8f, 0.8f));
 			mWireframeMarkedEdgeMaterial = new UnshadedMaterial(new Color3f(1.0f, 0.0f, 1.0f));
-			
-			
-			
-			
-			mSmokeShader = new ShaderProgram(gl, "shaders/soft_particles", true, GL2.GL_POINTS, GL2.GL_TRIANGLE_STRIP, 4);
-			
-			mSmokeShader.bind(gl);
-			gl.glUniform1i(mSmokeShader.getUniformLocation(gl, "DiffuseBuffer"), 0);
-			gl.glUniform1i(mSmokeShader.getUniformLocation(gl, "PositionBuffer"), 1);
-			mSmokeShader.unbind(gl);
-			mSmokeEnableSoftParticlesLocation = mSmokeShader.getUniformLocation(gl, "EnableSoftParticles");
-			mSmokeNearPlaneLocation = mSmokeShader.getUniformLocation(gl, "NearPlane");
-			mSmokeTauLocation = mSmokeShader.getUniformLocation(gl, "Tau");
 			
 			/* Make sure nothing went wrong. */
 			OpenGLException.checkOpenGLError(gl);

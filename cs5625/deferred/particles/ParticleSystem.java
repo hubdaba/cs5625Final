@@ -18,38 +18,36 @@ public class ParticleSystem extends Mesh {
 	private boolean needUpdate = true;
 	
 	//public HashMap<String, FloatBuffer> vertexAttribData = new HashMap<String, FloatBuffer>();
-	public FloatBuffer normals;
-	public FloatBuffer vertices;
-	public IntBuffer polyData;
 
 	protected boolean mIsOpaque = false;
 
 	private void updateAttribs() {
 		if (needUpdate) {
+			/*	No longer hack and use normals to pass through data!
 			//update vertex attributes
-			normals = Buffers.newDirectFloatBuffer(3 * P.size());
+			mNormalData = Buffers.newDirectFloatBuffer(3 * P.size());
 			// Use the normal vector to pass through data
 			for (Particle p : P) {
-				normals.put(p.radius);
-				normals.put(p.radius);
-				normals.put(p.radius);
+				mNormalData.put(p.radius);
+				mNormalData.put(p.radius);
+				mNormalData.put(p.radius);
 				//normals.put(0.0f);
 			}
-			normals.rewind();
+			mNormalData.rewind(); */
 			
-			vertices = Buffers.newDirectFloatBuffer(3 * P.size());
+			mVertexData = Buffers.newDirectFloatBuffer(3 * P.size());
 			for (Particle p : P) {
-				vertices.put(p.x.x);
-				vertices.put(p.x.y);
-				vertices.put(p.x.z);
+				mVertexData.put(p.x.x);
+				mVertexData.put(p.x.y);
+				mVertexData.put(p.x.z);
 			}
-			vertices.rewind();
+			mVertexData.rewind();
 			
-			polyData = Buffers.newDirectIntBuffer(P.size());
+			mPolygonData = Buffers.newDirectIntBuffer(P.size());
 			for (int i=0; i<P.size(); i++) {
-				polyData.put(i);
+				mPolygonData.put(i);
 			}
-			polyData.rewind();
+			mPolygonData.rewind();
 			needUpdate = false;
 		}
 	}
@@ -87,15 +85,15 @@ public class ParticleSystem extends Mesh {
 	
 	public FloatBuffer getVertexData() {
 		updateAttribs();
-		return vertices;
+		return mVertexData;
 	}
 	public IntBuffer getPolygonData() {
 		updateAttribs();
-		return polyData;
+		return mPolygonData;
 	}
 	public FloatBuffer getNormalData() {
 		updateAttribs();
-		return normals;
+		return mNormalData;
 	}
 
 	

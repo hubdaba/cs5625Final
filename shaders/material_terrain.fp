@@ -30,9 +30,9 @@ void main()
 	vec2 enc = encode(eyespaceNormal);
 	float slope = 1.0 - worldspaceNormal.y;
 	
-	vec3 grassColor = texture2D(GrassTexture, fract(WorldspacePosition.xz)).rgb;
-	vec3 mossColor = texture2D(MossTexture, fract(WorldspacePosition.xz)).rgb;
-	vec3 rockColor = texture2D(RockTexture, fract(WorldspacePosition.xz)).rgb;
+	vec3 grassColor = texture2D(GrassTexture, fract(WorldspacePosition.xz/4.0)).rgb;
+	vec3 mossColor = texture2D(MossTexture, fract(WorldspacePosition.xz/4.0)).rgb;
+	vec3 rockColor = texture2D(RockTexture, fract(WorldspacePosition.xz/4.0)).rgb;
 	
 	vec3 diffuse_color = vec3(0.0);
 	if (slope < 0.2) {
