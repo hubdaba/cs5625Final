@@ -14,6 +14,7 @@ import javax.vecmath.Color3f;
 import cs5625.deferred.misc.OpenGLException;
 import cs5625.deferred.misc.OpenGLResourceObject;
 import cs5625.deferred.misc.Util;
+import cs5625.deferred.rendering.Camera;
 import cs5625.deferred.rendering.ShaderProgram;
 import cs5625.deferred.scenegraph.Geometry;
 
@@ -40,6 +41,9 @@ public abstract class Material implements OpenGLResourceObject
 	 * shader for this material.
 	 * @param gl The OpenGL state.
 	 */
+	public void bind(GL2 gl, Camera camera) throws OpenGLException {
+		bind(gl);
+	}
 	public abstract void bind(GL2 gl) throws OpenGLException;
 	
 	/**
@@ -73,6 +77,14 @@ public abstract class Material implements OpenGLResourceObject
 	}
 	
 	/**
+	 * Get a hashmap of strings naming the required FBO's for this shader, and where to bind them.
+	 * This is hacky, but it is the best I can see to do with this framework.
+	 */
+	public HashMap<String, Integer> getRequiredFBOs() {
+		return new HashMap<String, Integer>();
+	}
+	
+	/**
 	 * Retrieves the shader for this material from the cache, loading and initializing it if necessary, 
 	 * and stores it in the 'mShaderProgram' instance variable.
 	 * 
@@ -89,7 +101,7 @@ public abstract class Material implements OpenGLResourceObject
 		{
 			try
 			{
-				shaderCache.put(this.getClass(), new ShaderProgram(gl, getShaderIdentifier()));
+				shaderCache.put(this.getClass(), createShader(gl));
 			}
 			catch (Exception err)
 			{
@@ -105,6 +117,15 @@ public abstract class Material implements OpenGLResourceObject
 			mShaderProgram = shader;
 			initializeShader(gl, shader);
 		}
+	}
+	
+	/**
+	 * Creates the shader object.  Allows sub classes to initialize differently.
+	 * @throws IOException 
+	 * @throws OpenGLException 
+	 */
+	protected ShaderProgram createShader(GL2 gl) throws OpenGLException, IOException {
+		return new ShaderProgram(gl, getShaderIdentifier());
 	}
 	
 	/**

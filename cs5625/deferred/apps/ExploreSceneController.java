@@ -121,8 +121,8 @@ public class ExploreSceneController extends SceneController
 				p.radius = 1.0f;
 				smoke.addParticle(p); 
 			} */
-		//	SmokeSource smoke = new SmokeSource();
-			//mSceneRoot.addChild(smoke);
+			SmokeSource smoke = new SmokeSource();
+			mSceneRoot.addChild(smoke);
 		}
 		catch (Exception err)
 		{

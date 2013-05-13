@@ -1,34 +1,28 @@
 package cs5625.deferred.particles;
 
-import java.nio.Buffer;
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 
 import javax.vecmath.Point3f;
 
 import com.jogamp.common.nio.Buffers;
 
-import cs5625.deferred.rendering.Attributable;
-import cs5625.deferred.scenegraph.SceneObject;
+import cs5625.deferred.scenegraph.Mesh;
 
 /* A straightforward abstraction, just a particle system for smoke objects */
-public class SmokeSystem extends SceneObject {
+public class SmokeSystem extends Mesh {
 	private List<Particle> P = new ArrayList<Particle>();
 	private boolean needUpdate = true;
-	private float tau = 0.4f;
 	
 	//public HashMap<String, FloatBuffer> vertexAttribData = new HashMap<String, FloatBuffer>();
 	public FloatBuffer normals;
 	public FloatBuffer vertices;
-	public FloatBuffer polyData;
+	public IntBuffer polyData;
 
-	public FloatBuffer getNormalData() {
-		updateAttribs();
-		return normals;
-	}
+	protected boolean mIsOpaque = false;
 
 	private void updateAttribs() {
 		if (needUpdate) {
@@ -51,10 +45,9 @@ public class SmokeSystem extends SceneObject {
 			}
 			vertices.rewind();
 			
-			polyData = Buffers.newDirectFloatBuffer(3 * P.size());
-			int i = 0;
-			for (Particle p : P) {
-				polyData.put(i++);
+			polyData = Buffers.newDirectIntBuffer(P.size());
+			for (int i=0; i<P.size(); i++) {
+				polyData.put(i);
 			}
 			polyData.rewind();
 			needUpdate = false;
@@ -79,10 +72,6 @@ public class SmokeSystem extends SceneObject {
 		P.add(p);
 	}
 	
-	public float getTau() {
-		return tau;
-	}
-	
 	public Iterable<Particle> particleIterator() {
 		return P;
 	}
@@ -95,11 +84,40 @@ public class SmokeSystem extends SceneObject {
 		return P.size();
 	}
 
+	
 	public FloatBuffer getVertexData() {
-		// TODO Auto-generated method stub
+		updateAttribs();
 		return vertices;
 	}
-	public FloatBuffer getPolygonData() {
+	public IntBuffer getPolygonData() {
+		updateAttribs();
 		return polyData;
+	}
+	public FloatBuffer getNormalData() {
+		updateAttribs();
+		return normals;
+	}
+
+	
+	@Override
+	public int getVerticesPerPolygon() {
+		return 1;
+	}
+
+	@Override
+	public FloatBuffer calculateTangentVectors() {
+		return null;
+	}
+
+	@Override
+	public Mesh clone() {
+		SmokeSystem copyCat = new SmokeSystem();
+		for (Particle p : P) 
+			copyCat.addParticle(p);
+		return copyCat;
+	}
+	
+	public boolean isOpaque() {
+		return mIsOpaque;
 	}
 }

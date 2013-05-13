@@ -117,6 +117,9 @@ public class Renderer
 	private int mSmokeEnableSoftParticles = 1;
 	
 	
+	boolean mRenderingOpaque = true;
+	
+	
 	
 	/**
 	 * Renders a single frame of the scene. This is the main method of the Renderer class.
@@ -143,7 +146,7 @@ public class Renderer
 			
 			/* 2. Fill the particle buffer, utilizing the depth values aquired by filling
 			 * the GBuffer */
-			//fillSmokeBuffer(gl, sceneRoot, camera);
+			fillSmokeBuffer(gl, sceneRoot, camera);
 			
 			/* 3. Apply deferred lighting to the g-buffer. At this point, the opaque scene has been rendered. */
 			lightGBuffer(gl, camera);
@@ -232,11 +235,13 @@ public class Renderer
 	 */
 	private void fillGBuffer(GL2 gl, SceneObject sceneRoot, Camera camera) throws OpenGLException
 	{
-		/* First, bind and clear the gbuffer. */
-		mGBufferFBO.bindSome(gl, new int[]{GBuffer_DiffuseIndex, GBuffer_PositionIndex, GBuffer_MaterialIndex1, GBuffer_MaterialIndex2});
-		
-		gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
+		if (mRenderingOpaque) {
+			/* First, bind and clear the gbuffer. */
+			mGBufferFBO.bindSome(gl, new int[]{GBuffer_DiffuseIndex, GBuffer_PositionIndex, GBuffer_MaterialIndex1, GBuffer_MaterialIndex2});
+			
+			gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+			gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
+		}
 		
 		/* Update the projection matrix with this camera's projection matrix. */
 		gl.glMatrixMode(GL2.GL_PROJECTION);
@@ -284,6 +289,7 @@ public class Renderer
 		// Bind the target particle buffer
 		// Pass through camera parameters
 		// Render the particle systems in the scene graph
+		gl.glPushAttrib(GL2.GL_ENABLE_BIT);
 		
 		/* Bind the SSAO buffer as output. */
 		mGBufferFBO.bindOne(gl, GBuffer_ParticleIndex);
@@ -292,7 +298,6 @@ public class Renderer
 		gl.glClear(GL2.GL_COLOR_BUFFER_BIT);
 		
 		/* Save state before we disable depth testing for blitting. */
-		gl.glPushAttrib(GL2.GL_ENABLE_BIT);
 		
 		/* Expect pre-multiplied alpha from the shader. This allows us to support both
          * several types of blending in a single pass:
@@ -348,6 +353,8 @@ public class Renderer
 		if (!obj.isVisible()) {
 			return;
 		}
+		gl.glPushAttrib(GL2.GL_ALL_ATTRIB_BITS);
+		gl.glPushClientAttrib((int)GL2.GL_CLIENT_ALL_ATTRIB_BITS);
 		
 		/* Save matrix before applying this object's transformation. */
 		gl.glPushMatrix();
@@ -367,14 +374,11 @@ public class Renderer
 		if (obj instanceof SmokeSystem)
 		{
 			// Render smoke particles			
-			gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);
-			gl.glVertexPointer(3, GL2.GL_FLOAT, 0, ((SmokeSystem)obj).getVertexData());
+			//gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);
+			//gl.glVertexPointer(3, GL2.GL_FLOAT, 0, ((SmokeSystem)obj).getVertexData());
 			//gl.glEnableClientState(GL2.GL_COLOR_ARRAY);
 			//gl.glColorPointer(3, GL2.GL_FLOAT, 0, ((SmokeSystem)obj).getNormalData());
 			OpenGLException.checkOpenGLError(gl);
-			
-			gl.glUniform1f(mSmokeNearPlaneLocation, camera.getNear());
-			gl.glUniform1f(mSmokeTauLocation, ((SmokeSystem)obj).getTau());
 			
 			
 			gl.glBegin(GL2.GL_POINTS);
@@ -390,7 +394,7 @@ public class Renderer
 			//gl.glDrawArrays(GL2.GL_POINTS, 0, ((SmokeSystem)obj).getVertexCount());
 			
 			OpenGLException.checkOpenGLError(gl);
-			gl.glDisableClientState(GL2.GL_VERTEX_ARRAY);
+			//gl.glDisableClientState(GL2.GL_VERTEX_ARRAY);
 			//gl.glDisableClientState(GL2.GL_COLOR_ARRAY);
 		}
 		
@@ -402,6 +406,10 @@ public class Renderer
 		
 		/* Restore transformation matrix and check for errors. */
 		gl.glPopMatrix();
+		
+		gl.glPopClientAttrib();
+		gl.glPopAttrib();
+		
 		OpenGLException.checkOpenGLError(gl);
 	}
 	
@@ -523,7 +531,7 @@ public class Renderer
 		/* Apply this object's transformation. */
 		gl.glTranslatef(position.x, position.y, position.z);
 		gl.glRotatef(orientation.angle * 180.0f / (float)Math.PI, orientation.x, orientation.y, orientation.z);;
-		if (obj instanceof TerrainRenderer) {
+		if (obj instanceof TerrainRenderer && mRenderingOpaque) {
 			((TerrainRenderer) obj).setupPosition(gl, camera);
 			((TerrainRenderer) obj).renderPolygons(gl, camera);
 			((TerrainRenderer) obj).getMaterial().retrieveShader(gl, mShaderCache);
@@ -535,10 +543,11 @@ public class Renderer
 		{
 			for (Mesh mesh : ((Geometry)obj).getMeshes())
 			{
-				renderMesh(gl, mesh);
+				if (mRenderingOpaque==mesh.isOpaque())
+					renderMesh(gl, mesh, camera);
 			}
 		}
-		else if (obj instanceof Light)
+		else if (obj instanceof Light && mRenderingOpaque)
 		{
 			mLights.add((Light)obj);
 		}
@@ -560,7 +569,7 @@ public class Renderer
 	 * @param gl The OpenGL state.
 	 * @param mesh The mesh to render.
 	 */
-	private void renderMesh(GL2 gl, Mesh mesh) throws OpenGLException
+	private void renderMesh(GL2 gl, Mesh mesh, Camera camera) throws OpenGLException
 	{
 		/* Save all state to isolate any changes made by this mesh's material. */
 		gl.glPushAttrib(GL2.GL_ALL_ATTRIB_BITS);
@@ -568,7 +577,7 @@ public class Renderer
 		
 		/* Activate the material. */
 		mesh.getMaterial().retrieveShader(gl, mShaderCache);
-		mesh.getMaterial().bind(gl);
+		mesh.getMaterial().bind(gl, camera);
 		
 			
 		/* Enable the required vertex arrays and send data. */
@@ -604,13 +613,16 @@ public class Renderer
 
 		/* Send custom vertex attributes (if any) to OpenGL. */
 		bindRequiredMeshAttributes(gl, mesh);
+		bindRequiredMeshFBOs(gl, mesh);
 		
 		/* Render polygons. */
 		gl.glDrawElements(getOpenGLPrimitiveType(mesh.getVerticesPerPolygon()), 
 						  mesh.getVerticesPerPolygon() * mesh.getPolygonCount(), 
 						  GL2.GL_UNSIGNED_INT, 
 						  mesh.getPolygonData());
-				
+		
+		unbindRequiredMeshFBOs(gl, mesh);
+		
 		/* Deactivate material and restore state. */
 		mesh.getMaterial().unbind(gl);
 
@@ -695,6 +707,38 @@ public class Renderer
 				gl.glEnableVertexAttribArray(location);
 				System.out.println(attribData.capacity());
 				gl.glVertexAttribPointer(location, attribData.capacity() / att.getVertexCount(), GL2.GL_FLOAT, false, 0, attribData);
+			}
+		}
+	}
+	void bindRequiredMeshFBOs(GL2 gl, Mesh mesh) throws OpenGLException {
+		HashMap<String, Integer> fbos = mesh.getMaterial().getRequiredFBOs();
+		for (String fbo : fbos.keySet()) {
+			if (fbo.equals("Diffuse")) {
+				mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).bind(gl, fbos.get(fbo));
+			} else if (fbo.equals("Position")){
+				mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, fbos.get(fbo));
+			} else if (fbo.equals("Material1")){
+				mGBufferFBO.getColorTexture(GBuffer_MaterialIndex1).bind(gl, fbos.get(fbo));
+			} else if (fbo.equals("Material2")){
+				mGBufferFBO.getColorTexture(GBuffer_MaterialIndex2).bind(gl, fbos.get(fbo));
+			} else if (fbo.equals("Gradients")) {
+				mGBufferFBO.getColorTexture(GBuffer_GradientsIndex).bind(gl, fbos.get(fbo));
+			}
+		}
+	}
+	void unbindRequiredMeshFBOs(GL2 gl, Mesh mesh) throws OpenGLException {
+		HashMap<String, Integer> fbos = mesh.getMaterial().getRequiredFBOs();
+		for (String fbo : fbos.keySet()) {
+			if (fbo.equals("Diffuse")) {
+				mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).unbind(gl);
+			} else if (fbo.equals("Position")){
+				mGBufferFBO.getColorTexture(GBuffer_PositionIndex).unbind(gl);
+			} else if (fbo.equals("Material1")){
+				mGBufferFBO.getColorTexture(GBuffer_MaterialIndex1).unbind(gl);
+			} else if (fbo.equals("Material2")){
+				mGBufferFBO.getColorTexture(GBuffer_MaterialIndex2).unbind(gl);
+			} else if (fbo.equals("Gradients")) {
+				mGBufferFBO.getColorTexture(GBuffer_GradientsIndex).unbind(gl);
 			}
 		}
 	}
