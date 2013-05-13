@@ -22,7 +22,6 @@ import cs5625.deferred.misc.OpenGLException;
 import cs5625.deferred.misc.PerlinNoise;
 import cs5625.deferred.misc.ScenegraphException;
 import cs5625.deferred.misc.Util;
-import cs5625.deferred.particles.SmokeSystem;
 import cs5625.deferred.scenegraph.Geometry;
 import cs5625.deferred.scenegraph.Light;
 import cs5625.deferred.scenegraph.Mesh;
@@ -141,12 +140,14 @@ public class Renderer
 			/* Reset lights array. It will be re-filled as the scene is traversed. */
 			mLights.clear();
 			
+			mRenderingOpaque = true;
 			/* 1. Fill the gbuffer given this scene and camera. */ 
 			fillGBuffer(gl, sceneRoot, camera);
 			
+			mRenderingOpaque = false;
 			/* 2. Fill the particle buffer, utilizing the depth values aquired by filling
 			 * the GBuffer */
-			fillSmokeBuffer(gl, sceneRoot, camera);
+			fillGBuffer(gl, sceneRoot, camera);
 			
 			/* 3. Apply deferred lighting to the g-buffer. At this point, the opaque scene has been rendered. */
 			lightGBuffer(gl, camera);
@@ -238,10 +239,12 @@ public class Renderer
 		if (mRenderingOpaque) {
 			/* First, bind and clear the gbuffer. */
 			mGBufferFBO.bindSome(gl, new int[]{GBuffer_DiffuseIndex, GBuffer_PositionIndex, GBuffer_MaterialIndex1, GBuffer_MaterialIndex2});
-			
-			gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-			gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
+		} else {
+			mGBufferFBO.bindOne(gl, GBuffer_ParticleIndex);
 		}
+		
+		gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+		gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
 		
 		/* Update the projection matrix with this camera's projection matrix. */
 		gl.glMatrixMode(GL2.GL_PROJECTION);
@@ -282,134 +285,6 @@ public class Renderer
 		
 		
 		/* Check for errors after rendering, to help isolate. */
-		OpenGLException.checkOpenGLError(gl);
-	}
-	
-	public void fillSmokeBuffer(GL2 gl, SceneObject sceneRoot, Camera camera) throws OpenGLException {
-		// Bind the target particle buffer
-		// Pass through camera parameters
-		// Render the particle systems in the scene graph
-		gl.glPushAttrib(GL2.GL_ENABLE_BIT);
-		
-		/* Bind the SSAO buffer as output. */
-		mGBufferFBO.bindOne(gl, GBuffer_ParticleIndex);
-
-		gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		gl.glClear(GL2.GL_COLOR_BUFFER_BIT);
-		
-		/* Save state before we disable depth testing for blitting. */
-		
-		/* Expect pre-multiplied alpha from the shader. This allows us to support both
-         * several types of blending in a single pass:
-         *
-         *       no blending: gl_FragColor = vec4(color, 1.0);
-         *    alpha blending: gl_FragColor = vec4(color * alpha, alpha);
-         * additive blending: gl_FragColor = vec4(color, 0.0);
-         *
-         * The default particle shader uses alpha blending, but you can subclass ParticleMaterial
-         * and write your own shader; if it follows this alpha convention it will "just work".
-         */
-        gl.glBlendFunc(GL2.GL_ONE, GL2.GL_ONE_MINUS_SRC_ALPHA);
-        gl.glEnable(GL2.GL_BLEND);
-
-        /* Disable writing of depth values by these particles. They will still clip against the
-         * opaque scene geometry, but not against other particles. */
-        gl.glDepthMask(false);
-		
-		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).bind(gl, 0);
-		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, 1);
-		
-		/* We need to disable interpolation on the g-buffer, otherwise we get ringing artifacts!
-		 * This won't reduce the quality of our ssao because the g-buffer is full resolution. */
-		//mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).enableInterpolation(gl, false);
-		//mGBufferFBO.getColorTexture(GBuffer_PositionIndex).enableInterpolation(gl, false);
-		
-		/* Bind the SSAO shader and update the uniforms. */
-		mSmokeShader.bind(gl);
-		
-		gl.glUniform1i(mSmokeEnableSoftParticlesLocation, mSmokeEnableSoftParticles);		// TODO: FIND THESE VALUES
-		
-		
-		/* Render. */
-		drawSmokeSystem(gl, sceneRoot, camera);
-		
-		/* Unbind everything. */
-		mSmokeShader.unbind(gl);
-		
-		/* Re-enable interpolation. */
-		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).enableInterpolation(gl, true);
-		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).enableInterpolation(gl, true);
-		
-		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).unbind(gl);
-		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).unbind(gl);
-
-		mGBufferFBO.unbind(gl);
-
-		/* Restore attributes (blending and depth-testing) to as they were before. */
-		gl.glPopAttrib();
-	}
-	public void drawSmokeSystem(GL2 gl, SceneObject obj, Camera camera) throws OpenGLException {
-		/* If the object is not visible, we skip the rendition of it and all its children */
-		if (!obj.isVisible()) {
-			return;
-		}
-		gl.glPushAttrib(GL2.GL_ALL_ATTRIB_BITS);
-		gl.glPushClientAttrib((int)GL2.GL_CLIENT_ALL_ATTRIB_BITS);
-		
-		/* Save matrix before applying this object's transformation. */
-		gl.glPushMatrix();
-		
-		/* Get this object's transformation. */
-		float scale = obj.getScale();
-		Point3f position = obj.getPosition();
-		AxisAngle4f orientation = new AxisAngle4f();
-		orientation.set(obj.getOrientation());
-		
-		/* Apply this object's transformation. */
-		gl.glTranslatef(position.x, position.y, position.z);
-		gl.glRotatef(orientation.angle * 180.0f / (float)Math.PI, orientation.x, orientation.y, orientation.z);
-		gl.glScalef(scale, scale, scale);
-		
-		/* Render this object as appropriate for its type. */
-		if (obj instanceof SmokeSystem)
-		{
-			// Render smoke particles			
-			//gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);
-			//gl.glVertexPointer(3, GL2.GL_FLOAT, 0, ((SmokeSystem)obj).getVertexData());
-			//gl.glEnableClientState(GL2.GL_COLOR_ARRAY);
-			//gl.glColorPointer(3, GL2.GL_FLOAT, 0, ((SmokeSystem)obj).getNormalData());
-			OpenGLException.checkOpenGLError(gl);
-			
-			
-			gl.glBegin(GL2.GL_POINTS);
-			for (Point3f r : ((SmokeSystem)obj).getParticlePositions()) {
-				gl.glVertex3d(r.x, r.y, r.z);
-			}
-			gl.glEnd(); 
-			
-			//gl.glDrawElements(GL2.GL_POINTS, 
-			//		  ((SmokeSystem)obj).getVertexCount(),	//mesh.getVerticesPerPolygon() * mesh.getPolygonCount() 
-			//		  GL2.GL_UNSIGNED_INT, 
-			//		  ((SmokeSystem)obj).getPolygonData());
-			//gl.glDrawArrays(GL2.GL_POINTS, 0, ((SmokeSystem)obj).getVertexCount());
-			
-			OpenGLException.checkOpenGLError(gl);
-			//gl.glDisableClientState(GL2.GL_VERTEX_ARRAY);
-			//gl.glDisableClientState(GL2.GL_COLOR_ARRAY);
-		}
-		
-		/* Render this object's children. */
-		for (SceneObject child : obj.getChildren())
-		{
-			drawSmokeSystem(gl, child, camera);
-		}
-		
-		/* Restore transformation matrix and check for errors. */
-		gl.glPopMatrix();
-		
-		gl.glPopClientAttrib();
-		gl.glPopAttrib();
-		
 		OpenGLException.checkOpenGLError(gl);
 	}
 	
@@ -575,6 +450,27 @@ public class Renderer
 		gl.glPushAttrib(GL2.GL_ALL_ATTRIB_BITS);
 		gl.glPushClientAttrib((int)GL2.GL_CLIENT_ALL_ATTRIB_BITS);
 		
+		if (mRenderingOpaque) {
+			/* Expect pre-multiplied alpha from the shader. This allows us to support both
+	         * several types of blending in a single pass:
+	         *
+	         *       no blending: gl_FragColor = vec4(color, 1.0);
+	         *    alpha blending: gl_FragColor = vec4(color * alpha, alpha);
+	         * additive blending: gl_FragColor = vec4(color, 0.0);
+	         *
+	         * The default particle shader uses alpha blending, but you can subclass ParticleMaterial
+	         * and write your own shader; if it follows this alpha convention it will "just work".
+	         */
+	        gl.glBlendFunc(GL2.GL_ONE, GL2.GL_ONE_MINUS_SRC_ALPHA);
+	        gl.glEnable(GL2.GL_BLEND);
+
+	        /* Disable writing of depth values by these particles. They will still clip against the
+	         * opaque scene geometry, but not against other particles. */
+	        gl.glDepthMask(false);
+	        
+	        System.out.println("HERE!-----------------------------------------------------");
+		}
+		
 		/* Activate the material. */
 		mesh.getMaterial().retrieveShader(gl, mShaderCache);
 		mesh.getMaterial().bind(gl, camera);
@@ -628,7 +524,7 @@ public class Renderer
 
 		
 		/* Render mesh wireframe if we're supposed to. */
-		if (mRenderWireframes && mesh.getVerticesPerPolygon() > 2)
+		if (mRenderWireframes && mesh.getVerticesPerPolygon() > 2 && mRenderingOpaque)		// TODO: Only doing wireframes for opaque objects
 		{
 			mWireframeMaterial.retrieveShader(gl, mShaderCache);
 			mWireframeMaterial.bind(gl);
@@ -648,7 +544,7 @@ public class Renderer
 		}
 
 		/* Render marked edges (e.g. for subdiv creases), if we're supposed to and if they exist. */
-		if (mRenderWireframes && mesh.getEdgeData() != null)
+		if (mRenderWireframes && mesh.getEdgeData() != null && mRenderingOpaque)		// TODO: Only doing wireframes for opaque objects
 		{
 			mWireframeMarkedEdgeMaterial.retrieveShader(gl, mShaderCache);
 			mWireframeMarkedEdgeMaterial.bind(gl);

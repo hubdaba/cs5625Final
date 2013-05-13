@@ -5,7 +5,10 @@ import java.util.ArrayList;
 import javax.vecmath.Point3f;
 import javax.vecmath.Vector3f;
 
-public class SmokeSource extends SmokeSystem {
+import cs5625.deferred.materials.SmokeMaterial;
+import cs5625.deferred.scenegraph.Geometry;
+
+public class SmokeSource extends Geometry {
 	float lift = 0.3f;
 	float dev = 0.1f;
 	float friction = 0.01f;
@@ -16,14 +19,22 @@ public class SmokeSource extends SmokeSystem {
 	float life = 15.0f;
 	public Point3f origin = new Point3f();
 	
+	ParticleSystem PS;
+	
+	public SmokeSource() {
+		PS = new ParticleSystem();
+		PS.setMaterial(new SmokeMaterial());
+		addMesh(PS);
+	}
+	
 	public boolean isVisible() {
-		return size()!=0 && super.isVisible();
+		return PS.size()!=0 && super.isVisible();
 	}
 	
 	public void animate(float dt) {
 		super.animate(dt);
 		ArrayList<Particle> toRemove = new ArrayList<Particle>();
-		for (Particle p : particleIterator()) {
+		for (Particle p : PS.particleIterator()) {
 			if (p.life < 0) {
 				toRemove.add(p);
 			}
@@ -41,10 +52,10 @@ public class SmokeSource extends SmokeSystem {
 			newP.radius = radius;
 			newP.v = new Vector3f((float)(Math.random()-0.5)*startVDev, (float)(Math.random()-0.5)*startVDev, (float)(Math.random()-0.5)*startVDev);
 			newP.life = life;
-			addParticle(newP);
+			PS.addParticle(newP);
 			System.out.println("new perticle!");
 		}
-		removeParticles(toRemove);
+		PS.removeParticles(toRemove);
 		
 		nextParticleCreation -= dt;
 	}

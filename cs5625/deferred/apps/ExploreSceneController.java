@@ -28,7 +28,6 @@ import javax.vecmath.Vector3f;
 import cs5625.deferred.misc.Util;
 import cs5625.deferred.particles.Particle;
 import cs5625.deferred.particles.SmokeSource;
-import cs5625.deferred.particles.SmokeSystem;
 import cs5625.deferred.scenegraph.PointLight;
 import cs5625.deferred.scenegraph.TerrainRenderer;
 
@@ -122,6 +121,7 @@ public class ExploreSceneController extends SceneController
 				smoke.addParticle(p); 
 			} */
 			SmokeSource smoke = new SmokeSource();
+			smoke.origin.set(12f, 12f, 12f);
 			mSceneRoot.addChild(smoke);
 		}
 		catch (Exception err)

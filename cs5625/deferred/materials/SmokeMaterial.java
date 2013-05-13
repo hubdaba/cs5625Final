@@ -6,7 +6,6 @@ import java.util.HashMap;
 import javax.media.opengl.GL2;
 
 import cs5625.deferred.misc.OpenGLException;
-import cs5625.deferred.particles.SmokeSystem;
 import cs5625.deferred.rendering.Camera;
 import cs5625.deferred.rendering.ShaderProgram;
 
