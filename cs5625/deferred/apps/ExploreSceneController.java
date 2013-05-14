@@ -50,7 +50,7 @@ import cs5625.deferred.scenegraph.TerrainRenderer;
 public class ExploreSceneController extends SceneController
 {
 	
-	public static float EXPLOSION_RADIUS = 10.0f;
+	public static float EXPLOSION_RADIUS = 5.0f;
 	
 	/* Keeps track of camera's orbit position. Latitude and longitude are in degrees. */
 	private float mCameraLongitude = 50.0f, mCameraLatitude = -40.0f;

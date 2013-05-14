@@ -86,9 +86,9 @@ void main() {
 	}
 	
 	float val = worldCoord.y + explosion_offset;
-	for (float i = 0.0; i < 10.0; i+=1.0) {
+	for (float i = 0.0; i < 15.0; i+=1.0) {
 		float n = 2.0 * i + 1.0;
-		val += 0.5 * inoise((1.0 / n) * worldCoord) * (n);
+		val += .25 * inoise((1.0 / n) * worldCoord) * (n);
 	}
 	
 	gl_FragColor.rgb = vec3(val);
