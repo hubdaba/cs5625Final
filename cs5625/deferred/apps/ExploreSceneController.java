@@ -233,7 +233,7 @@ public class ExploreSceneController extends SceneController
 			forwardVector = new Vector3f(0.0f, 0.0f, -1.0f);
 			Util.rotateTuple(mCamera.getOrientation(), forwardVector);
 			forwardVector.normalize();
-			Point3f newSplosion = findWall(mCamera.getPosition(), forwardVector);
+			Point3f newSplosion = findWall(mCamera.getWorldspacePosition(), forwardVector);
 			if (newSplosion != null) 
 				explosionHandler.addExplosion(new Explosion(newSplosion, EXPLOSION_RADIUS));
 		}
@@ -287,7 +287,7 @@ public class ExploreSceneController extends SceneController
 		Point3f check = new Point3f(start);
 		float distTraveled = 0.0f;
 		float val = QuadSampler.evaluate(check);
-		while (val > -10) {
+		while (val > -20.0) {
 			distTraveled += gStepSize;
 			check.add(dr);
 			val = QuadSampler.evaluate(check);
@@ -296,6 +296,7 @@ public class ExploreSceneController extends SceneController
 				return null;
 			}
 		}
+		System.out.println("HIT with "+val);
 		return check;
 	}
 

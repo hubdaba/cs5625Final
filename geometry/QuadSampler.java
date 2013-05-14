@@ -36,12 +36,14 @@ public class QuadSampler extends SuperBlock {
 		//float val = (float) (Math.pow(10.0 - Math.sqrt(point.x * point.x + point.y * point.y), 2) + point.z * point.z - 9.0);
 		
 		// TODO: INCLUDE EXPLOSIONS!
-		Point3f point2 = new Point3f(point);
-		point2.scale(.2f);
-		Point3f point3 = new Point3f(point);
-		point3.scale(0.01f);
-		float val = point.y + PerlinNoise.noise(point) + 10 * PerlinNoise.noise(point2)
-				+ 20 * PerlinNoise.noise(point3);
+		float val = point.y;
+		Point3f tmpPnt;
+		for (float i = 0.0f; i < 10.0; i+=1.0) {
+			float n = 2.0f * i + 1.0f;
+			tmpPnt = new Point3f(point);
+			tmpPnt.scale(1.0f/n);
+			val += 0.5 * PerlinNoise.noise(tmpPnt) * (n);
+		}
 		return (float) (val);
 	}
 

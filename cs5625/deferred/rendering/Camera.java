@@ -34,6 +34,8 @@ public class Camera extends SceneObject implements Observerable, Frustum
 	private float mFar = 100.0f;
 
 	private List<Observer> observers;
+	
+	private Boolean iAmShadowCamera = null;
 
 	public Camera() {
 		super();
@@ -132,5 +134,12 @@ public class Camera extends SceneObject implements Observerable, Frustum
 	public boolean inFrustum(SuperBlock block) {
 		return true;
 		
+	}
+	
+	public boolean isShadowCamera() {
+		if (iAmShadowCamera == null) {
+			iAmShadowCamera = this instanceof ShadowCamera;
+		}
+		return iAmShadowCamera;
 	}
 }

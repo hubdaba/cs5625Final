@@ -1,10 +1,12 @@
 package cs5625.deferred.rendering;
 
+import java.awt.Frame;
 import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import javax.media.opengl.GL2;
 import javax.media.opengl.GLAutoDrawable;
@@ -111,6 +113,10 @@ public class Renderer
 	boolean mRenderingOpaque = true;
 	
 	
+	// Shadow camera data 
+	List<ShadowCamera> mShadowCameras = new ArrayList<ShadowCamera>();
+	HashMap<ShadowCamera, FramebufferObject> mShadowCameraFBOs = new HashMap<ShadowCamera, FramebufferObject>();
+	
 	
 	/**
 	 * Renders a single frame of the scene. This is the main method of the Renderer class.
@@ -131,6 +137,11 @@ public class Renderer
 		{
 			/* Reset lights array. It will be re-filled as the scene is traversed. */
 			mLights.clear();
+			
+			for (ShadowCamera sc : mShadowCameras) {
+				mRenderingOpaque = true;
+				fillGBuffer(gl, sceneRoot, sc);
+			}
 			
 			mRenderingOpaque = true;
 			/* 1. Fill the gbuffer given this scene and camera. */ 
@@ -228,15 +239,23 @@ public class Renderer
 	 */
 	private void fillGBuffer(GL2 gl, SceneObject sceneRoot, Camera camera) throws OpenGLException
 	{
-		if (mRenderingOpaque) {
-			/* First, bind and clear the gbuffer. */
-			mGBufferFBO.bindSome(gl, new int[]{GBuffer_DiffuseIndex, GBuffer_PositionIndex, GBuffer_MaterialIndex1, GBuffer_MaterialIndex2});
+		if (camera.isShadowCamera()) {
+			getShadowCameraFBO(gl, (ShadowCamera)camera).bindAll(gl);
+			if (mRenderingOpaque) {
+				gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+				gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
+			}
 		} else {
-			mGBufferFBO.bindOne(gl, GBuffer_ParticleIndex);
+			if (mRenderingOpaque) {
+				/* First, bind and clear the gbuffer. */
+				mGBufferFBO.bindSome(gl, new int[]{GBuffer_DiffuseIndex, GBuffer_PositionIndex, GBuffer_MaterialIndex1, GBuffer_MaterialIndex2});
+			} else {
+				mGBufferFBO.bindOne(gl, GBuffer_ParticleIndex);
+			}
+			
+			gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+			gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
 		}
-		
-		gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
 		
 		/* Update the projection matrix with this camera's projection matrix. */
 		gl.glMatrixMode(GL2.GL_PROJECTION);
@@ -272,8 +291,12 @@ public class Renderer
 			System.out.println("ERROR");
 		}
 
-		/* GBuffer is filled, so unbind it. */
-		mGBufferFBO.unbind(gl);
+		if (!camera.isShadowCamera()) {
+			/* GBuffer is filled, so unbind it. */
+			mGBufferFBO.unbind(gl);
+		} else {
+			getShadowCameraFBO(gl, (ShadowCamera)camera).unbind(gl);
+		}
 		
 		
 		/* Check for errors after rendering, to help isolate. */
@@ -345,6 +368,8 @@ public class Renderer
 				gl.glUniform3f(mLightAttenuationsUniformLocation + i, 1.0f, 0.0f, 0.0f);
 			}
 		}
+		
+		/* Bind Shadowing Information */
 		
 		/* Ubershader needs to know how many lights. */
 		gl.glUniform1i(mNumLightsUniformLocation, mLights.size());
@@ -599,7 +624,9 @@ public class Renderer
 		HashMap<String, Integer> fbos = mesh.getMaterial().getRequiredFBOs();
 		for (String fbo : fbos.keySet()) {
 			if (fbo.equals("Diffuse")) {
+				System.out.println("Diffuse Buffer at "+fbos.get(fbo));
 				mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).bind(gl, fbos.get(fbo));
+				
 			} else if (fbo.equals("Position")){
 				mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, fbos.get(fbo));
 			} else if (fbo.equals("Material1")){
@@ -681,7 +708,19 @@ public class Renderer
 	{
 		return mRenderWireframes;
 	}
-
+	
+	/** 
+	 * Returns the frame buffer object associated with this shadow camera, or 
+	 * creates one.
+	 * @throws OpenGLException 
+	 */
+	protected FramebufferObject getShadowCameraFBO(GL2 gl, ShadowCamera sc) throws OpenGLException {
+		if (!mShadowCameraFBOs.containsKey(sc)) {
+			FramebufferObject fbo = new FramebufferObject(gl, Format.RGBA, Datatype.FLOAT16, sc.getShadowWidth(), sc.getShadowHeight(), GBuffer_Count, true, false);
+			mShadowCameraFBOs.put(sc, fbo);
+		}
+		return mShadowCameraFBOs.get(sc);
+	}
 	
 	/**
 
