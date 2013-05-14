@@ -3,16 +3,10 @@
 const int TERRAIN_MATERIAL_ID = 4;
 
 
-uniform int NumExplosions;
-uniform vec3 ExplosionPositions[5];
-
-uniform float ExplosionRadius;
-
 
 uniform sampler2D GrassTexture;
 uniform sampler2D MossTexture;
 uniform sampler2D RockTexture;
-<<<<<<< HEAD
 uniform int NumExplosions;
 uniform vec3 ExplosionPositions[5];
 
@@ -102,8 +96,8 @@ void main()
 	for (int i = 0; i < NumExplosions; i++) {
 		vec3 explosionPosition = ExplosionPositions[i];
 		float distanceToExplosion = distance(explosionPosition, WorldspacePosition);
-		if (distanceToExplosion < ExplosionRadius) {
-			diffuse_color = vec3(0.0, 0.0, 0.0);
+		if (distanceToExplosion - 1.0 < ExplosionRadius) {
+			diffuse_color = vec3(1.0, 0.0, 0.0);
 			break;
 		}
 	}

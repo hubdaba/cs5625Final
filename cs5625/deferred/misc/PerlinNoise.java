@@ -119,13 +119,23 @@ public class PerlinNoise {
 	
 	public static float noise(Tuple3f p) {
 		Point3i pFloor = new Point3i();
-		pFloor.x = (int)Math.floor(p.x);
-		pFloor.y = (int)Math.floor(p.y);
-		pFloor.z = (int)Math.floor(p.z);
+		pFloor.x = ((int)Math.floor(p.x)) % 256;
+		pFloor.y = ((int)Math.floor(p.y)) % 256;
+		pFloor.z = ((int)Math.floor(p.z)) % 256;
 		Point3f pFract = new Point3f(p);
 		pFract.x = pFract.x % 1;
 		pFract.y = pFract.y % 1;
 		pFract.z = pFract.z % 1;
+		if (pFract.x < 0) {
+			pFract.x++;
+		}
+		if (pFract.y < 0) {
+			pFract.y++;
+		}
+		if (pFract.z < 0) {
+			pFract.z++;
+		}
+		System.out.println(pFract);
 		Point3f faded = fade(pFract);
 		int A = perm(pFloor.x) + pFloor.y;
 		int AA = perm(A) + pFloor.z;

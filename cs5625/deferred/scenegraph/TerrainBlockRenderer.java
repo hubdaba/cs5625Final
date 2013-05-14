@@ -190,6 +190,7 @@ public class TerrainBlockRenderer extends SuperBlock {
 		gl.glPopAttrib();
 
 		density_filled = true;
+		blockDensityFunction.getTexture().getPixelData(gl);
 
 	}
 

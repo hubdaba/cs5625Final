@@ -193,6 +193,21 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		this.update(o, null);
 	}
 
+	public float evaluate(Point3f point) throws OpenGLException {
+		Point3f blockMin = new Point3f();
+		
+		blockMin.x = (float) (Math.floor(point.x / BLOCK_SIZE) * BLOCK_SIZE);
+		blockMin.y = (float) (Math.floor(point.y / BLOCK_SIZE) * BLOCK_SIZE);
+		blockMin.z = (float) (Math.floor(point.z / BLOCK_SIZE) * BLOCK_SIZE);
+		Point3f difference = new Point3f(point);
+		difference.sub(blockMin);
+		difference.scale((float) (1.0/BLOCK_SIZE));
+		if (blocks.containsKey(blockMin)) {
+			TerrainBlockRenderer block = blocks.get(blockMin);
+			return block.getTexture3D().sample3D(difference);
+		}
+		return 10000;
+	}
 
 
 	@Override

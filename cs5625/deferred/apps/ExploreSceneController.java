@@ -14,22 +14,24 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
 import javax.swing.Timer;
 import javax.vecmath.AxisAngle4f;
-import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
 import javax.vecmath.Vector2f;
 import javax.vecmath.Vector3f;
 
+import cs5625.deferred.misc.OpenGLException;
+import cs5625.deferred.misc.ScenegraphException;
 import cs5625.deferred.misc.Util;
-import cs5625.deferred.particles.Particle;
 import cs5625.deferred.particles.SmokeExplosion;
-import cs5625.deferred.particles.SmokeSource;
+import cs5625.deferred.scenegraph.Geometry;
 import cs5625.deferred.scenegraph.PointLight;
+import cs5625.deferred.scenegraph.SceneObject;
 import cs5625.deferred.scenegraph.TerrainRenderer;
 
 /**
@@ -236,6 +238,20 @@ public class ExploreSceneController extends SceneController
 			Point3f newSplosion = findWall(mCamera.getWorldspacePosition(), forwardVector);
 			if (newSplosion != null) 
 				explosionHandler.addExplosion(new Explosion(newSplosion, EXPLOSION_RADIUS));
+			try {
+				List<Geometry> cubes = Geometry.load("models/cube.obj", true, true);
+				SceneObject cubeObject = new SceneObject();
+				cubeObject.setPosition(new Point3f(newSplosion));
+				cubeObject.addGeometry(cubes);
+				//cubeObject.setScale(100f);
+				mSceneRoot.addChild(cubeObject);
+			} catch (ScenegraphException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	}
 	
@@ -245,6 +261,21 @@ public class ExploreSceneController extends SceneController
 		if (c == ' ') {
 			explosionHandler.addExplosion(
 						new Explosion(mCamera.getPosition(), EXPLOSION_RADIUS));
+			
+			try {
+				List<Geometry> cubes = Geometry.load("models/cube.obj", true, true);
+				SceneObject cubeObject = new SceneObject();
+				cubeObject.setPosition(new Point3f(mCamera.getPosition()));
+				cubeObject.addGeometry(cubes);
+				//cubeObject.setScale(100f);
+				mSceneRoot.addChild(cubeObject);
+			} catch (ScenegraphException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	}
 	
@@ -286,17 +317,24 @@ public class ExploreSceneController extends SceneController
 		dr.scale(gStepSize);
 		Point3f check = new Point3f(start);
 		float distTraveled = 0.0f;
-		float val = QuadSampler.evaluate(check, explosionHandler);
-		while (val > -20.0) {
-			distTraveled += gStepSize;
-			check.add(dr);
-			val = QuadSampler.evaluate(check, explosionHandler);
-			System.out.println(val);
-			if (distTraveled > gMaxDistance) {
-				return null;
+		float val;
+		try {
+			val = terrainRenderer.evaluate(check);
+			while (val > 0.0) {
+				distTraveled += gStepSize;
+				check.add(dr);
+				val = terrainRenderer.evaluate(check);
+		//	System.out.println(val);
+				if (distTraveled > gMaxDistance) {
+					return null;
+				}
 			}
+		} catch (OpenGLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-		System.out.println("HIT with "+val);
+		
+	//	System.out.println("HIT with "+val);
 		return check;
 	}
 
