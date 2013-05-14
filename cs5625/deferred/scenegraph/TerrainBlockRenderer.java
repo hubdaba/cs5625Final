@@ -261,6 +261,10 @@ public class TerrainBlockRenderer extends SuperBlock {
 
 	}
 
+	public List<Explosion> getExplosionPositions() {
+		return explosions;
+	}
+	
 	public Texture3D getTexture3D() {
 		return blockDensityFunction.getTexture();
 	}

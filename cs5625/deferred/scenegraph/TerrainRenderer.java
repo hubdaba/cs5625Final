@@ -166,8 +166,8 @@ public class TerrainRenderer extends SceneObject implements Observer {
 	public void renderTerrain(GL2 gl) throws OpenGLException {
 		//System.out.println(blocks.size());
 		for (TerrainBlockRenderer block : blocks.values()) {
-			System.out.println(block.getMinPoint());
 			if (!isTest) {
+				((TerrainMaterial) terrainMaterial).setExplosionPositions(block.getExplosionPositions());
 				((TerrainMaterial) terrainMaterial).setDensityFunction(block.getTexture3D());
 				((TerrainMaterial) terrainMaterial).setLowerCorner(block.getMinPoint());
 				((TerrainMaterial) terrainMaterial).setNumVoxels(block.getNumVoxels());

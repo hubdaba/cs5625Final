@@ -38,9 +38,15 @@ public class QuadSampler extends SuperBlock {
 		point2.scale(.2f);
 		Point3f point3 = new Point3f(point);
 		point3.scale(0.01f);
-		float val = point.y + PerlinNoise.noise(point) + 10 * PerlinNoise.noise(point2)
-				+ 20 * PerlinNoise.noise(point3);
-		return (float) (val);
+		float val = 0;
+		for (int i = 0; i < 15; i++) {
+			int n = 2 * i + 1;
+			val += 0.25f * PerlinNoise.noise(
+					new Point3f((1.0f / n) * point.x,
+								(1.0f / n) * point.y,
+								(1.0f / n) * point.z)) * (n);
+		}
+		return val;
 	}
 
 	
