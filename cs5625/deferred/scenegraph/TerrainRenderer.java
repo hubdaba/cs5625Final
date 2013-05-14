@@ -38,7 +38,7 @@ public class TerrainRenderer extends SceneObject implements Observer {
 
 	private Material terrainMaterial;
 	private boolean isTest;
-	public static float BLOCK_SIZE = 32;
+	public static float BLOCK_SIZE =32 ;
 
 	private Set<QuadSampler> nonemptyBlocks;
 	private BlockingQueue<QuadSampler> explodedBlocks;
@@ -127,9 +127,9 @@ public class TerrainRenderer extends SceneObject implements Observer {
 					if (nonemptyBlocks.contains(quad)) {
 						continue;
 					}
-					if (quad.hasPolygons()) {
+					
 						nonemptyBlocks.add(quad);
-					}
+				
 				}
 			}
 		}

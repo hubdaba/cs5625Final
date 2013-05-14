@@ -1,8 +1,11 @@
 package geometry;
 
+import java.util.List;
+
 import javax.vecmath.Point3f;
 import javax.vecmath.Tuple3f;
 
+import cs5625.deferred.apps.ExploreSceneController;
 import cs5625.deferred.misc.PerlinNoise;
 
 public class QuadSampler extends SuperBlock {
@@ -31,9 +34,21 @@ public class QuadSampler extends SuperBlock {
 	
 	
 
-	public static float evaluate(Point3f point) {
+	public static float evaluate(Point3f point, ExplosionHandler handler) {
 		//int[] val = PerlinNoise.noise[(int)multPoint.x][(int)multPoint.y][(int)multPoint.z];
 		//float val = (float) (Math.pow(10.0 - Math.sqrt(point.x * point.x + point.y * point.y), 2) + point.z * point.z - 9.0);
+		List<Explosion> explosions = 
+					handler.getExplosions(SuperBlock.midpointDistanceBlock(point, 1));
+		
+		float explosion_offset = 0;
+		
+		for (Explosion explosion : explosions) {
+			float distance = point.distance(explosion.getPosition());
+			float explosionRadius = ExploreSceneController.EXPLOSION_RADIUS;
+			if (distance < explosionRadius) {
+				explosion_offset += 200.0 * ((explosionRadius - distance)/explosionRadius);
+			} 
+		}
 		
 		// TODO: INCLUDE EXPLOSIONS!
 		float val = point.y;
@@ -44,33 +59,10 @@ public class QuadSampler extends SuperBlock {
 			tmpPnt.scale(1.0f/n);
 			val += 0.5 * PerlinNoise.noise(tmpPnt) * (n);
 		}
-		return (float) (val);
+		return (float) (val) + explosion_offset;
 	}
 
-	
-	public boolean hasPolygons() {
-		boolean hasNeg = false;
-		boolean hasPos = false;
-		float voxelSize = sideLength/10;
-		for (float x = minPoint.x; x <= minPoint.x + sideLength; x+= voxelSize) {
-			for (float y = minPoint.y; y <= minPoint.y + sideLength; y += voxelSize) {
-				for (float z = minPoint.z; z <= minPoint.z + sideLength; z += voxelSize) {
-					Point3f voxelCorner = new Point3f(x, y, z);
-					float val = evaluate(voxelCorner);
-					if (val > 0) {
-						hasPos = true;
-					} else {
-						hasNeg = true;
-					}
-					if (hasPos && hasNeg) {
-						return true;
-					}
-				}
-			}
-		}
-		return false;
-		//return true;
-	}
+
 
 	@Override
 	public String toString() {

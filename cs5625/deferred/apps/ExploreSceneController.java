@@ -286,11 +286,11 @@ public class ExploreSceneController extends SceneController
 		dr.scale(gStepSize);
 		Point3f check = new Point3f(start);
 		float distTraveled = 0.0f;
-		float val = QuadSampler.evaluate(check);
+		float val = QuadSampler.evaluate(check, explosionHandler);
 		while (val > -20.0) {
 			distTraveled += gStepSize;
 			check.add(dr);
-			val = QuadSampler.evaluate(check);
+			val = QuadSampler.evaluate(check, explosionHandler);
 			System.out.println(val);
 			if (distTraveled > gMaxDistance) {
 				return null;
