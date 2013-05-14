@@ -154,6 +154,23 @@ public class Renderer
 				mRenderingOpaque = true;
 				fillGBuffer(gl, sceneRoot, sc);
 			}
+			for (ShadowCamera sc : mShadowCameras) {
+				int min = Integer.MAX_VALUE;
+				int max = Integer.MIN_VALUE;
+				try {
+					int[] pixels = getShadowCameraFBO(gl, sc).getDepthTexture().getPixelData(gl);
+					for (int i=0; i<pixels.length; i++) {
+						min = (int)Math.min(min, pixels[i]);
+						max = (int)Math.max(max, pixels[i]);
+						if (i%745==0) {
+							//System.out.println(pixels[i]);
+						}
+					}
+					System.out.println("The smallest value in the float array is: "+min+" and the largest is "+max);
+				} finally {
+					
+				}
+			}
 			
 			mRenderingOpaque = true;
 			/* 1. Fill the gbuffer given this scene and camera. */ 
@@ -192,6 +209,11 @@ public class Renderer
 	 */
 	protected void finalPass(GL2 gl) throws OpenGLException
 	{
+		if (mShadowCameras.size()>0 && false) {
+			Util.renderTextureFullscreen(gl, mShadowCameraFBOs.get(mShadowCameras.get(0)).getDepthTexture());
+			return;
+		}
+		
 		if (mPreviewIndex >= 6 && mPreviewIndex <= 8)
 		{
 			/* The keys '7', '8', and '9' correspond to gbuffer data visualization. */
@@ -386,6 +408,9 @@ public class Renderer
 			}
 		}
 		
+		/* Ubershader needs to know how many lights. */
+		gl.glUniform1i(mNumLightsUniformLocation, mLights.size());
+		
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		/* Bind Shadowing Information */
 		gl.glUniform1i(mNumShadowMapsLocation, mShadowCameras.size());
@@ -405,8 +430,9 @@ public class Renderer
 			
 			/* Set LightMatrix, which sends points from world space into (light) camera clip coordinates space. */
 			Matrix4f lMat = sc.getWorldSpaceTransformationMatrix4f();
+			System.out.println(lMat);
 			lMat.invert();
-			lMat.mul(sc.getProjectionMatrix(mViewportWidth, mViewportHeight), lMat);
+			lMat.mul(sc.getProjectionMatrix(sc.getShadowMapWidth(), sc.getShadowMapHeight()), lMat);
 
 			// By Column (?)
 			float lightMatrix[] = { lMat.m00, lMat.m10, lMat.m20, lMat.m30,
@@ -441,30 +467,12 @@ public class Renderer
 			{
 				gl.glUniform3f(mShadowLightAttenuationsLocation + j, 1.0f, 0.0f, 0.0f);
 			}
-			int min = Integer.MAX_VALUE;
-			int max = Integer.MIN_VALUE;
-			try {
-				int[] pixels = getShadowCameraFBO(gl, sc).getDepthTexture().getPixelData(gl);
-				for (int i=0; i<pixels.length; i++) {
-					min = (int)Math.min(min, pixels[i]);
-					max = (int)Math.max(max, pixels[i]);
-					if (i%745==0) {
-						System.out.println(pixels[i]);
-					}
-				}
-				System.out.println("The smallest value in the float array is: "+min+" and the largest is "+max);
-			} finally {
-				
-			}
 			getShadowCameraFBO(gl, sc).getDepthTexture().bind(gl, mShadowMapPositionLocation[j]);//.getDepthTexture().bind(gl, mShadowTextureLocation);
 			
 			j += 1;
 		}
 		
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////
-		
-		/* Ubershader needs to know how many lights. */
-		gl.glUniform1i(mNumLightsUniformLocation, mLights.size());
 	
 		/* Let there be light! */
 		Util.drawFullscreenQuad(gl, mViewportWidth, mViewportHeight);
@@ -893,7 +901,6 @@ public class Renderer
 			for (int i = 0; i < mMaxShadowsInUberShader; i++) {
 				String uniformName = String.format("ShadowMaps[%d]", i);
 				mShadowMapPositionLocation[i] =  mUberShader.getUniformLocation(gl, uniformName);
-				System.out.println(mShadowMapPositionLocation[i]);
 			}
 			
 			

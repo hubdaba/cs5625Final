@@ -89,7 +89,7 @@ float DepthToLinear(float value)
  */
 float getShadowVal(vec4 shadowCoord, vec2 offset, int shadowSource) 
 {
-	return -texture2D(ShadowMaps[shadowSource], shadowCoord.xy + offset).z;
+	//return -texture2D(ShadowMaps[shadowSource], shadowCoord.xy + offset).z;
 	if (shadowCoord.z <= texture2D(ShadowMaps[shadowSource], shadowCoord.xy + offset).z + bias[shadowSource]) {
 		return 1.0;
 	}
@@ -180,7 +180,7 @@ float getShadowStrength(vec3 position, int shadowSource) {
 	
 	if (ShadowMode == DEFAULT_SHADOW_MAP)
 	{
-		return getDefaultShadowMapVal(ShadowCoord, shadowSource);
+		return getDefaultShadowMapVal(ShadowCoord, shadowSource)+1.0;
 	}
 	else if (ShadowMode == PCF_SHADOW_MAP)
 	{
@@ -340,5 +340,4 @@ void main()
 	/* Add in alpha blended particles */
 	vec4 pColor = texture2DRect(ParticleBuffer, gl_FragCoord.xy);
 	gl_FragColor.rgb = (gl_FragColor.rgb*(1.0-pColor.a) + pColor.rgb); //*pColor.a);		//pColor.rgb is already weighted...
-	//gl_FragColor += pColor * pColor.a;
 }

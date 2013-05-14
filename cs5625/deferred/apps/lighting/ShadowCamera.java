@@ -39,7 +39,7 @@ public class ShadowCamera extends Camera implements Observer {
 
 	public float getBias() {
 		// TODO Auto-generated method stub
-		return 0;
+		return 1E-6f;
 	}
 	
 	public Light getShadowLight() {
@@ -61,6 +61,7 @@ public class ShadowCamera extends Camera implements Observer {
 	protected void updateOrientation() {
 		// Set position to that of the light, primarily
 		this.setPosition(mShadowLight.getPosition());
+		System.out.println(mShadowLight.getPosition());
 	}
 
 
