@@ -1,9 +1,12 @@
 package cs5625.deferred.rendering;
 
+import java.awt.Frame;
 import java.io.IOException;
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import javax.media.opengl.GL2;
 import javax.media.opengl.GLAutoDrawable;
@@ -14,6 +17,8 @@ import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
 
+import com.jogamp.common.nio.Buffers;
+
 import cs5625.deferred.materials.Material;
 import cs5625.deferred.materials.Texture.Datatype;
 import cs5625.deferred.materials.Texture.Format;
@@ -22,7 +27,6 @@ import cs5625.deferred.misc.OpenGLException;
 import cs5625.deferred.misc.PerlinNoise;
 import cs5625.deferred.misc.ScenegraphException;
 import cs5625.deferred.misc.Util;
-import cs5625.deferred.particles.SmokeSystem;
 import cs5625.deferred.scenegraph.Geometry;
 import cs5625.deferred.scenegraph.Light;
 import cs5625.deferred.scenegraph.Mesh;
@@ -106,16 +110,12 @@ public class Renderer
 	private int mMaxLightsInUberShader;
 	
 	
-	/*
-	 * Shaders and parameters for the different particle effects.  
-	 * It was not straightforward to abstract these away to some other
-	 * class- there is too much overlap, so here it is, hardcoded in the 
-	 * renderer.
-	 */
-	ShaderProgram mSmokeShader;
-	private int mSmokeEnableSoftParticlesLocation = -1, mSmokeNearPlaneLocation = -1, mSmokeTauLocation = -1;
-	private int mSmokeEnableSoftParticles = 1;
+	boolean mRenderingOpaque = true;
 	
+	
+	// Shadow camera data 
+	List<ShadowCamera> mShadowCameras = new ArrayList<ShadowCamera>();
+	HashMap<ShadowCamera, FramebufferObject> mShadowCameraFBOs = new HashMap<ShadowCamera, FramebufferObject>();
 	
 	
 	/**
@@ -138,12 +138,19 @@ public class Renderer
 			/* Reset lights array. It will be re-filled as the scene is traversed. */
 			mLights.clear();
 			
+			for (ShadowCamera sc : mShadowCameras) {
+				mRenderingOpaque = true;
+				fillGBuffer(gl, sceneRoot, sc);
+			}
+			
+			mRenderingOpaque = true;
 			/* 1. Fill the gbuffer given this scene and camera. */ 
 			fillGBuffer(gl, sceneRoot, camera);
 			
+			mRenderingOpaque = false;
 			/* 2. Fill the particle buffer, utilizing the depth values aquired by filling
 			 * the GBuffer */
-			//fillSmokeBuffer(gl, sceneRoot, camera);
+			fillGBuffer(gl, sceneRoot, camera);
 			
 			/* 3. Apply deferred lighting to the g-buffer. At this point, the opaque scene has been rendered. */
 			lightGBuffer(gl, camera);
@@ -232,11 +239,23 @@ public class Renderer
 	 */
 	private void fillGBuffer(GL2 gl, SceneObject sceneRoot, Camera camera) throws OpenGLException
 	{
-		/* First, bind and clear the gbuffer. */
-		mGBufferFBO.bindSome(gl, new int[]{GBuffer_DiffuseIndex, GBuffer_PositionIndex, GBuffer_MaterialIndex1, GBuffer_MaterialIndex2});
-		
-		gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
+		if (camera.isShadowCamera()) {
+			getShadowCameraFBO(gl, (ShadowCamera)camera).bindAll(gl);
+			if (mRenderingOpaque) {
+				gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+				gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
+			}
+		} else {
+			if (mRenderingOpaque) {
+				/* First, bind and clear the gbuffer. */
+				mGBufferFBO.bindSome(gl, new int[]{GBuffer_DiffuseIndex, GBuffer_PositionIndex, GBuffer_MaterialIndex1, GBuffer_MaterialIndex2});
+			} else {
+				mGBufferFBO.bindOne(gl, GBuffer_ParticleIndex);
+			}
+			
+			gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+			gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
+		}
 		
 		/* Update the projection matrix with this camera's projection matrix. */
 		gl.glMatrixMode(GL2.GL_PROJECTION);
@@ -272,142 +291,21 @@ public class Renderer
 			System.out.println("ERROR");
 		}
 
-		/* GBuffer is filled, so unbind it. */
-		mGBufferFBO.unbind(gl);
+		if (!camera.isShadowCamera()) {
+			/* GBuffer is filled, so unbind it. */
+			mGBufferFBO.unbind(gl);
+		} else {
+			getShadowCameraFBO(gl, (ShadowCamera)camera).unbind(gl);
+		}
 		
 		
 		/* Check for errors after rendering, to help isolate. */
 		OpenGLException.checkOpenGLError(gl);
 	}
 	
-	public void fillSmokeBuffer(GL2 gl, SceneObject sceneRoot, Camera camera) throws OpenGLException {
-		// Bind the target particle buffer
-		// Pass through camera parameters
-		// Render the particle systems in the scene graph
-		
-		/* Bind the SSAO buffer as output. */
-		mGBufferFBO.bindOne(gl, GBuffer_ParticleIndex);
-
-		gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		gl.glClear(GL2.GL_COLOR_BUFFER_BIT);
-		
-		/* Save state before we disable depth testing for blitting. */
-		gl.glPushAttrib(GL2.GL_ENABLE_BIT);
-		
-		/* Expect pre-multiplied alpha from the shader. This allows us to support both
-         * several types of blending in a single pass:
-         *
-         *       no blending: gl_FragColor = vec4(color, 1.0);
-         *    alpha blending: gl_FragColor = vec4(color * alpha, alpha);
-         * additive blending: gl_FragColor = vec4(color, 0.0);
-         *
-         * The default particle shader uses alpha blending, but you can subclass ParticleMaterial
-         * and write your own shader; if it follows this alpha convention it will "just work".
-         */
-        gl.glBlendFunc(GL2.GL_ONE, GL2.GL_ONE_MINUS_SRC_ALPHA);
-        gl.glEnable(GL2.GL_BLEND);
-
-        /* Disable writing of depth values by these particles. They will still clip against the
-         * opaque scene geometry, but not against other particles. */
-        gl.glDepthMask(false);
-		
-		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).bind(gl, 0);
-		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, 1);
-		
-		/* We need to disable interpolation on the g-buffer, otherwise we get ringing artifacts!
-		 * This won't reduce the quality of our ssao because the g-buffer is full resolution. */
-		//mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).enableInterpolation(gl, false);
-		//mGBufferFBO.getColorTexture(GBuffer_PositionIndex).enableInterpolation(gl, false);
-		
-		/* Bind the SSAO shader and update the uniforms. */
-		mSmokeShader.bind(gl);
-		
-		gl.glUniform1i(mSmokeEnableSoftParticlesLocation, mSmokeEnableSoftParticles);		// TODO: FIND THESE VALUES
-		
-		
-		/* Render. */
-		drawSmokeSystem(gl, sceneRoot, camera);
-		
-		/* Unbind everything. */
-		mSmokeShader.unbind(gl);
-		
-		/* Re-enable interpolation. */
-		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).enableInterpolation(gl, true);
-		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).enableInterpolation(gl, true);
-		
-		mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).unbind(gl);
-		mGBufferFBO.getColorTexture(GBuffer_PositionIndex).unbind(gl);
-
-		mGBufferFBO.unbind(gl);
-
-		/* Restore attributes (blending and depth-testing) to as they were before. */
-		gl.glPopAttrib();
-	}
-	public void drawSmokeSystem(GL2 gl, SceneObject obj, Camera camera) throws OpenGLException {
-		/* If the object is not visible, we skip the rendition of it and all its children */
-		if (!obj.isVisible()) {
-			return;
-		}
-		
-		/* Save matrix before applying this object's transformation. */
-		gl.glPushMatrix();
-		
-		/* Get this object's transformation. */
-		float scale = obj.getScale();
-		Point3f position = obj.getPosition();
-		AxisAngle4f orientation = new AxisAngle4f();
-		orientation.set(obj.getOrientation());
-		
-		/* Apply this object's transformation. */
-		gl.glTranslatef(position.x, position.y, position.z);
-		gl.glRotatef(orientation.angle * 180.0f / (float)Math.PI, orientation.x, orientation.y, orientation.z);
-		gl.glScalef(scale, scale, scale);
-		
-		/* Render this object as appropriate for its type. */
-		if (obj instanceof SmokeSystem)
-		{
-			// Render smoke particles			
-			gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);
-			gl.glVertexPointer(3, GL2.GL_FLOAT, 0, ((SmokeSystem)obj).getVertexData());
-			//gl.glEnableClientState(GL2.GL_COLOR_ARRAY);
-			//gl.glColorPointer(3, GL2.GL_FLOAT, 0, ((SmokeSystem)obj).getNormalData());
-			OpenGLException.checkOpenGLError(gl);
-			
-			gl.glUniform1f(mSmokeNearPlaneLocation, camera.getNear());
-			gl.glUniform1f(mSmokeTauLocation, ((SmokeSystem)obj).getTau());
-			
-			
-			gl.glBegin(GL2.GL_POINTS);
-			for (Point3f r : ((SmokeSystem)obj).getParticlePositions()) {
-				gl.glVertex3d(r.x, r.y, r.z);
-			}
-			gl.glEnd(); 
-			
-			//gl.glDrawElements(GL2.GL_POINTS, 
-			//		  ((SmokeSystem)obj).getVertexCount(),	//mesh.getVerticesPerPolygon() * mesh.getPolygonCount() 
-			//		  GL2.GL_UNSIGNED_INT, 
-			//		  ((SmokeSystem)obj).getPolygonData());
-			//gl.glDrawArrays(GL2.GL_POINTS, 0, ((SmokeSystem)obj).getVertexCount());
-			
-			OpenGLException.checkOpenGLError(gl);
-			gl.glDisableClientState(GL2.GL_VERTEX_ARRAY);
-			//gl.glDisableClientState(GL2.GL_COLOR_ARRAY);
-		}
-		
-		/* Render this object's children. */
-		for (SceneObject child : obj.getChildren())
-		{
-			drawSmokeSystem(gl, child, camera);
-		}
-		
-		/* Restore transformation matrix and check for errors. */
-		gl.glPopMatrix();
-		OpenGLException.checkOpenGLError(gl);
-	}
-	
 	/**
 	 * Applies lighting to an already-filled gbuffer to produce the final scene. Output is sent 
-	 * to the main framebuffer of the view/window.
+	 * to the main framebuffer of the view/window
 	 * 
 	 * @param gl The OpenGL state.
 	 * @param camera Camera from whose perspective we are rendering.
@@ -471,6 +369,8 @@ public class Renderer
 			}
 		}
 		
+		/* Bind Shadowing Information */
+		
 		/* Ubershader needs to know how many lights. */
 		gl.glUniform1i(mNumLightsUniformLocation, mLights.size());
 	
@@ -523,7 +423,7 @@ public class Renderer
 		/* Apply this object's transformation. */
 		gl.glTranslatef(position.x, position.y, position.z);
 		gl.glRotatef(orientation.angle * 180.0f / (float)Math.PI, orientation.x, orientation.y, orientation.z);;
-		if (obj instanceof TerrainRenderer) {
+		if (obj instanceof TerrainRenderer && mRenderingOpaque) {
 			((TerrainRenderer) obj).setupPosition(gl, camera);
 			((TerrainRenderer) obj).renderPolygons(gl, camera);
 			((TerrainRenderer) obj).getMaterial().retrieveShader(gl, mShaderCache);
@@ -535,10 +435,11 @@ public class Renderer
 		{
 			for (Mesh mesh : ((Geometry)obj).getMeshes())
 			{
-				renderMesh(gl, mesh);
+				if (mRenderingOpaque==mesh.isOpaque())
+					renderMesh(gl, mesh, camera);
 			}
 		}
-		else if (obj instanceof Light)
+		else if (obj instanceof Light && mRenderingOpaque)
 		{
 			mLights.add((Light)obj);
 		}
@@ -560,15 +461,34 @@ public class Renderer
 	 * @param gl The OpenGL state.
 	 * @param mesh The mesh to render.
 	 */
-	private void renderMesh(GL2 gl, Mesh mesh) throws OpenGLException
+	private void renderMesh(GL2 gl, Mesh mesh, Camera camera) throws OpenGLException
 	{
 		/* Save all state to isolate any changes made by this mesh's material. */
 		gl.glPushAttrib(GL2.GL_ALL_ATTRIB_BITS);
 		gl.glPushClientAttrib((int)GL2.GL_CLIENT_ALL_ATTRIB_BITS);
 		
+		if (!mRenderingOpaque) {
+			/* Expect pre-multiplied alpha from the shader. This allows us to support both
+	         * several types of blending in a single pass:
+	         *
+	         *       no blending: gl_FragColor = vec4(color, 1.0);
+	         *    alpha blending: gl_FragColor = vec4(color * alpha, alpha);
+	         * additive blending: gl_FragColor = vec4(color, 0.0);
+	         *
+	         * The default particle shader uses alpha blending, but you can subclass ParticleMaterial
+	         * and write your own shader; if it follows this alpha convention it will "just work".
+	         */
+	        gl.glBlendFunc(GL2.GL_ONE, GL2.GL_ONE_MINUS_SRC_ALPHA);
+	        gl.glEnable(GL2.GL_BLEND);
+
+	        /* Disable writing of depth values by these particles. They will still clip against the
+	         * opaque scene geometry, but not against other particles. */
+	        gl.glDepthMask(false);
+		}
+		
 		/* Activate the material. */
 		mesh.getMaterial().retrieveShader(gl, mShaderCache);
-		mesh.getMaterial().bind(gl);
+		mesh.getMaterial().bind(gl, camera);
 		
 			
 		/* Enable the required vertex arrays and send data. */
@@ -604,19 +524,22 @@ public class Renderer
 
 		/* Send custom vertex attributes (if any) to OpenGL. */
 		bindRequiredMeshAttributes(gl, mesh);
+		bindRequiredMeshFBOs(gl, mesh);
 		
 		/* Render polygons. */
 		gl.glDrawElements(getOpenGLPrimitiveType(mesh.getVerticesPerPolygon()), 
-						  mesh.getVerticesPerPolygon() * mesh.getPolygonCount(), 
-						  GL2.GL_UNSIGNED_INT, 
-						  mesh.getPolygonData());
-				
+				mesh.getVerticesPerPolygon() * mesh.getPolygonCount(), 
+				GL2.GL_UNSIGNED_INT, 
+				mesh.getPolygonData());
+		
+		unbindRequiredMeshFBOs(gl, mesh);
+		
 		/* Deactivate material and restore state. */
 		mesh.getMaterial().unbind(gl);
 
 		
 		/* Render mesh wireframe if we're supposed to. */
-		if (mRenderWireframes && mesh.getVerticesPerPolygon() > 2)
+		if (mRenderWireframes && mesh.getVerticesPerPolygon() > 2 && mRenderingOpaque)		// TODO: Only doing wireframes for opaque objects
 		{
 			mWireframeMaterial.retrieveShader(gl, mShaderCache);
 			mWireframeMaterial.bind(gl);
@@ -636,7 +559,7 @@ public class Renderer
 		}
 
 		/* Render marked edges (e.g. for subdiv creases), if we're supposed to and if they exist. */
-		if (mRenderWireframes && mesh.getEdgeData() != null)
+		if (mRenderWireframes && mesh.getEdgeData() != null && mRenderingOpaque)		// TODO: Only doing wireframes for opaque objects
 		{
 			mWireframeMarkedEdgeMaterial.retrieveShader(gl, mShaderCache);
 			mWireframeMarkedEdgeMaterial.bind(gl);
@@ -693,8 +616,41 @@ public class Renderer
 			else
 			{
 				gl.glEnableVertexAttribArray(location);
-				System.out.println(attribData.capacity());
 				gl.glVertexAttribPointer(location, attribData.capacity() / att.getVertexCount(), GL2.GL_FLOAT, false, 0, attribData);
+			}
+		}
+	}
+	void bindRequiredMeshFBOs(GL2 gl, Mesh mesh) throws OpenGLException {
+		HashMap<String, Integer> fbos = mesh.getMaterial().getRequiredFBOs();
+		for (String fbo : fbos.keySet()) {
+			if (fbo.equals("Diffuse")) {
+				System.out.println("Diffuse Buffer at "+fbos.get(fbo));
+				mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).bind(gl, fbos.get(fbo));
+				
+			} else if (fbo.equals("Position")){
+				mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, fbos.get(fbo));
+			} else if (fbo.equals("Material1")){
+				mGBufferFBO.getColorTexture(GBuffer_MaterialIndex1).bind(gl, fbos.get(fbo));
+			} else if (fbo.equals("Material2")){
+				mGBufferFBO.getColorTexture(GBuffer_MaterialIndex2).bind(gl, fbos.get(fbo));
+			} else if (fbo.equals("Gradients")) {
+				mGBufferFBO.getColorTexture(GBuffer_GradientsIndex).bind(gl, fbos.get(fbo));
+			}
+		}
+	}
+	void unbindRequiredMeshFBOs(GL2 gl, Mesh mesh) throws OpenGLException {
+		HashMap<String, Integer> fbos = mesh.getMaterial().getRequiredFBOs();
+		for (String fbo : fbos.keySet()) {
+			if (fbo.equals("Diffuse")) {
+				mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).unbind(gl);
+			} else if (fbo.equals("Position")){
+				mGBufferFBO.getColorTexture(GBuffer_PositionIndex).unbind(gl);
+			} else if (fbo.equals("Material1")){
+				mGBufferFBO.getColorTexture(GBuffer_MaterialIndex1).unbind(gl);
+			} else if (fbo.equals("Material2")){
+				mGBufferFBO.getColorTexture(GBuffer_MaterialIndex2).unbind(gl);
+			} else if (fbo.equals("Gradients")) {
+				mGBufferFBO.getColorTexture(GBuffer_GradientsIndex).unbind(gl);
 			}
 		}
 	}
@@ -752,7 +708,19 @@ public class Renderer
 	{
 		return mRenderWireframes;
 	}
-
+	
+	/** 
+	 * Returns the frame buffer object associated with this shadow camera, or 
+	 * creates one.
+	 * @throws OpenGLException 
+	 */
+	protected FramebufferObject getShadowCameraFBO(GL2 gl, ShadowCamera sc) throws OpenGLException {
+		if (!mShadowCameraFBOs.containsKey(sc)) {
+			FramebufferObject fbo = new FramebufferObject(gl, Format.RGBA, Datatype.FLOAT16, sc.getShadowWidth(), sc.getShadowHeight(), GBuffer_Count, true, false);
+			mShadowCameraFBOs.put(sc, fbo);
+		}
+		return mShadowCameraFBOs.get(sc);
+	}
 	
 	/**
 
@@ -817,19 +785,6 @@ public class Renderer
 			/* Load the material used to render mesh edges (e.g. creases for subdivs). */
 			mWireframeMaterial = new UnshadedMaterial(new Color3f(0.8f, 0.8f, 0.8f));
 			mWireframeMarkedEdgeMaterial = new UnshadedMaterial(new Color3f(1.0f, 0.0f, 1.0f));
-			
-			
-			
-			
-			mSmokeShader = new ShaderProgram(gl, "shaders/soft_particles", true, GL2.GL_POINTS, GL2.GL_TRIANGLE_STRIP, 4);
-			
-			mSmokeShader.bind(gl);
-			gl.glUniform1i(mSmokeShader.getUniformLocation(gl, "DiffuseBuffer"), 0);
-			gl.glUniform1i(mSmokeShader.getUniformLocation(gl, "PositionBuffer"), 1);
-			mSmokeShader.unbind(gl);
-			mSmokeEnableSoftParticlesLocation = mSmokeShader.getUniformLocation(gl, "EnableSoftParticles");
-			mSmokeNearPlaneLocation = mSmokeShader.getUniformLocation(gl, "NearPlane");
-			mSmokeTauLocation = mSmokeShader.getUniformLocation(gl, "Tau");
 			
 			/* Make sure nothing went wrong. */
 			OpenGLException.checkOpenGLError(gl);

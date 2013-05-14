@@ -6,6 +6,7 @@
 
 uniform sampler2DRect DiffuseBuffer;
 uniform sampler2DRect PositionBuffer;
+uniform sampler2D SmokeTexture;
 
 uniform int EnableSoftParticles;
 uniform float NearPlane;
@@ -14,6 +15,7 @@ uniform float Tau;
 varying float r;
 varying float z;
 varying vec2 TexCoord0;
+varying float tau0;
  
 void main() {
 	vec4 color = vec4(0.0);
@@ -35,14 +37,17 @@ void main() {
  				ds = B - max(F, NearPlane);
  			}
  			if (ds > 0.0) {
- 				alpha = max(0.0, 1.0 - exp(-Tau * (1.0-d/r) * ds));
+ 				alpha = max(0.0, 1.0 - exp(-tau0 * (1.0-d/r) * ds));
  			}
  		}
  	} else { 
  		
  		alpha = max(1.0-(x*x+y*y)/(r*r), 0.0);
  	} 
-	color = vec4(1.0, 1.0, 1.0, alpha);
+ 	// Texture!!!
+ 	vec3 fromTex = texture2D(SmokeTexture, TexCoord0);
+	color = vec4(1.0, 1.0, 1.0, alpha*fromTex.r);
 	
  	gl_FragColor = vec4(color.rgb*color.a, color.a);
+ 	//gl_FragColor = vec4(1.0);
 }

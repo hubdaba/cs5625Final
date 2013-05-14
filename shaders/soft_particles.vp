@@ -9,10 +9,12 @@ uniform int EnableSoftParticles;
 uniform float NearPlane;
 uniform float Tau;
 
-//attribute float radius;
+attribute float radius;
+attribute float T;
 //attribute vec4 gl_MultiTexCoord0;
 
 varying float rad;
+varying float tau;
 
 void main() {
 	// Do the transformation, without the rotation, so particles always face the camera
@@ -27,6 +29,7 @@ void main() {
 	//TexCoord = gl_MultiTexCoord0.xy;
 	
 	// New approach- pass parameters through in the normal vector, which is otherwise unused.
-	rad = gl_Color.z; //radius; //gl_MultiTexCoord0.x;
+	rad = radius; //gl_Normal.x; //1.0; //gl_Color.z; //radius; //gl_MultiTexCoord0.x;
 	gl_Position = gl_Vertex;
+	tau = T;
 } 

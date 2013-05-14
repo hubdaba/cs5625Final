@@ -27,8 +27,8 @@ import javax.vecmath.Vector3f;
 
 import cs5625.deferred.misc.Util;
 import cs5625.deferred.particles.Particle;
+import cs5625.deferred.particles.SmokeExplosion;
 import cs5625.deferred.particles.SmokeSource;
-import cs5625.deferred.particles.SmokeSystem;
 import cs5625.deferred.scenegraph.PointLight;
 import cs5625.deferred.scenegraph.TerrainRenderer;
 
@@ -73,6 +73,10 @@ public class ExploreSceneController extends SceneController
 	private ExplosionHandler explosionHandler;
 
 	private int millisec = 40;
+	
+	// GAME PARAMETERS
+	private float gStepSize = 0.1f;
+	private float gMaxDistance = 250f;		// Maybe the far plane distance?  Maybe arbitrary?
 
 	@Override
 	public void initializeScene()
@@ -121,8 +125,10 @@ public class ExploreSceneController extends SceneController
 				p.radius = 1.0f;
 				smoke.addParticle(p); 
 			} */
-		//	SmokeSource smoke = new SmokeSource();
-			//mSceneRoot.addChild(smoke);
+			//SmokeSource smoke = new SmokeSource();
+			//smoke.origin.set(12f, 12f, 12f);
+			SmokeExplosion smoke = new SmokeExplosion(explosionHandler);
+			mSceneRoot.addChild(smoke);
 		}
 		catch (Exception err)
 		{
@@ -221,6 +227,18 @@ public class ExploreSceneController extends SceneController
 		}
 	}
 	
+	@Override
+	public void mouseClicked(MouseEvent mouse) {
+		if (mouse.getButton()==3) {		// Right Click
+			forwardVector = new Vector3f(0.0f, 0.0f, -1.0f);
+			Util.rotateTuple(mCamera.getOrientation(), forwardVector);
+			forwardVector.normalize();
+			Point3f newSplosion = findWall(mCamera.getWorldspacePosition(), forwardVector);
+			if (newSplosion != null) 
+				explosionHandler.addExplosion(new Explosion(newSplosion, EXPLOSION_RADIUS));
+		}
+	}
+	
 	public void keyTyped(KeyEvent key) {
 		super.keyTyped(key);
 		char c = key.getKeyChar();
@@ -260,6 +278,26 @@ public class ExploreSceneController extends SceneController
 		} else if (k==KeyEvent.VK_LEFT || k==KeyEvent.VK_RIGHT) {
 			targetVelocity.x = 0.0f;
 		}
+	}
+	
+	public Point3f findWall(Point3f start, Vector3f dir) {
+		Vector3f dr = new Vector3f();
+		dr.normalize(dir);
+		dr.scale(gStepSize);
+		Point3f check = new Point3f(start);
+		float distTraveled = 0.0f;
+		float val = QuadSampler.evaluate(check);
+		while (val > -20.0) {
+			distTraveled += gStepSize;
+			check.add(dr);
+			val = QuadSampler.evaluate(check);
+			System.out.println(val);
+			if (distTraveled > gMaxDistance) {
+				return null;
+			}
+		}
+		System.out.println("HIT with "+val);
+		return check;
 	}
 
 }

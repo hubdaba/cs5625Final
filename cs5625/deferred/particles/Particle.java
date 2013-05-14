@@ -7,4 +7,5 @@ public class Particle {
 	public Vector3f v = new Vector3f();
 	public float radius = 1.0f;
 	public float life;
+	public Point3f normal = new Point3f();
 }

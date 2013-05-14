@@ -8,10 +8,12 @@ uniform float NearPlane;
 uniform float Tau;
 
 varying in float rad[];
+varying in float tau[];
 
 varying out float r;
 varying out vec2 TexCoord0;
 varying out float z;
+varying out float tau0;
 
 void main() {
 	// Take position in and vector to camera, and emit a tri strip,
@@ -22,6 +24,7 @@ void main() {
 	vec4 loc = gl_ModelViewMatrix * gl_PositionIn[0];
 	r = rad[0];
 	z = loc.z;
+	tau0 = tau[0];
 	
 	gl_Position = gl_ProjectionMatrix * (loc + vec4(-r, -r, 0.0, 0.0) );
 	TexCoord0 = vec2(0.0, 0.0);
@@ -37,7 +40,7 @@ void main() {
 	
 	gl_Position = gl_ProjectionMatrix * (loc + vec4( r,  r, 0.0, 0.0) );
 	TexCoord0 = vec2(1.0, 1.0);
-	EmitVertex(); 
+	EmitVertex();  
 	
 	EndPrimitive();
 }

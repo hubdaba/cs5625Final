@@ -41,6 +41,8 @@ public abstract class Mesh implements OpenGLResourceObject, Attributable
 	protected FloatBuffer mVertexData, mNormalData, mTexCoordData;
 	protected IntBuffer mPolygonData, mEdgeData;
 	
+	protected boolean mIsOpaque = true;
+	
 	/**
 	 * Map of generic vertex attribute name -> generic vertex attribute buffer. The number of elements in 
 	 * each buffer must match the number of vertices; each buffer's dimensionality (float, vec2, vec3, vec4) 
@@ -388,5 +390,12 @@ public abstract class Mesh implements OpenGLResourceObject, Attributable
 	}
 	public HashMap<String, FloatBuffer> getVertexAttribData() {
 		return vertexAttribData;
+	}
+	
+	/** 
+	 * Returns whether or not this piece of geometry is opaque
+	 */
+	public boolean isOpaque() {
+		return mIsOpaque;
 	}
 }

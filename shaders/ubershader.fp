@@ -42,6 +42,28 @@ uniform vec3 LightPositions[MAX_LIGHTS];
 uniform vec3 LightAttenuations[MAX_LIGHTS];
 uniform vec3 LightColors[MAX_LIGHTS];
 
+#define MAX_SHADOW_MAPS 10
+#define DEFAULT_SHADOW_MAP 0
+#define PCF_SHADOW_MAP 1
+#define PCSS SHADOW_MAP 2
+
+/* Shadow map parameters */
+uniform int NumShadowMaps;
+uniform int ShadowMode;
+uniform sampler2D ShadowMap[MAX_SHADOW_MAPS];
+uniform vec3 ShadowCamPosition[MAX_SHADOW_MAPS];
+uniform float bias[MAX_SHADOW_MAPS];
+uniform float ShadowSampleWidth[MAX_SHADOW_MAPS];
+uniform float ShadowMapWidth[MAX_SHADOW_MAPS];
+uniform float ShadowMapHeight[MAX_SHADOW_MAPS];
+uniform float LightWidth[MAX_SHADOW_MAPS];
+uniform vec3 ShadowLightAttenuations[MAX_SHADOW_MAPS];
+uniform vec3 ShadowLightColors[MAX_SHADOW_MAPS];
+
+/* Pass the shadow camera Projection * View matrix to help transform points, as well the Camera inverse-view Matrix */
+uniform mat4 LightMatrix[MAX_SHADOW_MAPS];
+uniform mat4 InverseViewMatrix[MAX_SHADOW_MAPS];
+
 
 /* Decodes a vec2 into a normalized vector See Renderer.java for more info. */
 vec3 decode(vec2 v)
@@ -195,6 +217,6 @@ void main()
 	
 	/* Add in alpha blended particles */
 	vec4 pColor = texture2DRect(ParticleBuffer, gl_FragCoord.xy);
-	//gl_FragColor.rgb = (gl_FragColor.rgb*(1.0-pColor.a) + pColor.rgb*pColor.a);
+	gl_FragColor.rgb = (gl_FragColor.rgb*(1.0-pColor.a) + pColor.rgb); //*pColor.a);		//pColor.rgb is already weighted...
 	//gl_FragColor += pColor * pColor.a;
 }
