@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 
 import javax.imageio.ImageIO;
 import javax.media.opengl.GL2;
@@ -34,6 +36,10 @@ public class Texture2D extends Texture
 	private int mWidth = -1;
 	private int mHeight = -1;
 	private int mTarget = -1;
+
+	
+	private Format mFormat;
+	private Datatype mDatatype;
 	
 	/**
 	 * Creates a new texture object with the passed attributes and data.
@@ -70,6 +76,7 @@ public class Texture2D extends Texture
 	{
 		super(gl);
 		initialize(gl, format, datatype, width, height, rectTexture, data);
+		
 	}
 	
 	/**
@@ -119,6 +126,15 @@ public class Texture2D extends Texture
 		/* Initialize with that data. */
 		result.initialize(gl, Format.RGBA, Datatype.INT8, width, height, !(isPOT(width) && isPOT(height)), imageData);
 		return result;
+	}
+	
+	public int[] getPixelData(GL2 gl) throws OpenGLException {
+		IntBuffer buffer = IntBuffer.allocate(mHeight * mWidth * 4);
+		bind(gl, 0);
+		gl.glGetTexImage(mTarget, 0, mFormat.toGLformat(), mDatatype.toGLtype(), buffer);
+		unbind(gl);
+		int[] pixels = buffer.array();
+		return pixels;
 	}
 
 	/**
@@ -178,6 +194,8 @@ public class Texture2D extends Texture
 	 */
 	private void initialize(GL2 gl, Format format, Datatype datatype, int width, int height, boolean rectTexture, Buffer data) throws OpenGLException
 	{
+		mFormat = format;
+		mDatatype = datatype;
 		try
 		{
 			/* Get GL formats first, in case something is invalid. */

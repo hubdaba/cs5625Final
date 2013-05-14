@@ -16,7 +16,7 @@ varying vec3 EyespaceNormal;
 varying vec3 WorldspacePosition;
 varying vec3 WorldspaceNormal;
 
-float tex_scale = 1.0/4.0;
+float tex_scale = 1.0/15.0;
 
 /* Encodes a normalized vector as a vec2. See Renderer.java for more info. */
 vec2 encode(vec3 n)

@@ -13,12 +13,14 @@ import javax.media.opengl.GLAutoDrawable;
 import javax.media.opengl.glu.GLU;
 import javax.vecmath.AxisAngle4f;
 import javax.vecmath.Color3f;
+import javax.vecmath.Matrix4f;
 import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
 
 import com.jogamp.common.nio.Buffers;
 
+import cs5625.deferred.apps.lighting.ShadowCamera;
 import cs5625.deferred.materials.Material;
 import cs5625.deferred.materials.Texture.Datatype;
 import cs5625.deferred.materials.Texture.Format;
@@ -116,6 +118,16 @@ public class Renderer
 	// Shadow camera data 
 	List<ShadowCamera> mShadowCameras = new ArrayList<ShadowCamera>();
 	HashMap<ShadowCamera, FramebufferObject> mShadowCameraFBOs = new HashMap<ShadowCamera, FramebufferObject>();
+	private int mShadowMode = 0;
+
+	
+	private int mNumShadowMapsLocation=-1, 				mShadowModeLocation=-1, 		mShadowMapsLocation=-1, 
+				mShadowCamPositionLocation=-1, 			mBiasLocation=-1,				mShadowSampleWidthLocation=-1, 
+				mShadowMapWidthLocation=-1, 			mShadowMapHeightLocation=-1, 	mLightWidthLocation=-1, 
+				mShadowLightAttenuationsLocation=-1, 	mShadowLightColorsLocation=-1,	mLightMatrixLocation=-1, 
+				mInverseViewMatrixLocation=-1;
+	private int[] mShadowMapPositionLocation;
+	private int mMaxShadowsInUberShader;
 	
 	
 	/**
@@ -147,10 +159,10 @@ public class Renderer
 			/* 1. Fill the gbuffer given this scene and camera. */ 
 			fillGBuffer(gl, sceneRoot, camera);
 			
-			mRenderingOpaque = false;
+			//mRenderingOpaque = false;
 			/* 2. Fill the particle buffer, utilizing the depth values aquired by filling
 			 * the GBuffer */
-			fillGBuffer(gl, sceneRoot, camera);
+			//fillGBuffer(gl, sceneRoot, camera);
 			
 			/* 3. Apply deferred lighting to the g-buffer. At this point, the opaque scene has been rendered. */
 			lightGBuffer(gl, camera);
@@ -313,7 +325,7 @@ public class Renderer
 	private void lightGBuffer(GL2 gl, Camera camera) throws OpenGLException, ScenegraphException
 	{
 		/* Need some lights, otherwise it will just be black! */
-		if (mLights.size() == 0)
+		if (mLights.size() == 0 && mShadowCameras.size() == 0)
 		{
 			throw new ScenegraphException("Must have at least one light in the scene!");
 		}
@@ -322,6 +334,11 @@ public class Renderer
 		if (mLights.size() > mMaxLightsInUberShader)
 		{
 			throw new ScenegraphException(mLights.size() + " is too many lights; ubershader only supports " + mMaxLightsInUberShader + ".");
+		}
+		
+		/* Can't have more shadow mapped lights than the shader supports */
+		if (mShadowCameras.size() > mMaxShadowsInUberShader) {
+			throw new ScenegraphException(mShadowCameras.size() + " is too many shadow maps; ubershader only supports " + mMaxShadowsInUberShader + ".");
 		}
 		
 		/* Bind final scene buffer as output target for this pass. */
@@ -369,7 +386,82 @@ public class Renderer
 			}
 		}
 		
+		////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		/* Bind Shadowing Information */
+		gl.glUniform1i(mNumShadowMapsLocation, mShadowCameras.size());
+		gl.glUniform1i(mShadowModeLocation, mShadowMode);
+		
+		int j=0;
+		for (ShadowCamera sc : mShadowCameras) {
+			/* Set InverseViewMatrix, which sends points from the (eye) camera local space into world space. */
+			Matrix4f iView = camera.getWorldSpaceTransformationMatrix4f();
+			// By Column, then row
+			float inverseViewMatrix[] = { iView.m00, iView.m10, iView.m20, iView.m30,
+					iView.m01, iView.m11, iView.m21, iView.m31,
+					iView.m02, iView.m12, iView.m22, iView.m32,
+					iView.m03, iView.m13, iView.m23, iView.m33 };
+
+			gl.glUniformMatrix4fv(mInverseViewMatrixLocation+j, 1, false, inverseViewMatrix, 0);
+			
+			/* Set LightMatrix, which sends points from world space into (light) camera clip coordinates space. */
+			Matrix4f lMat = sc.getWorldSpaceTransformationMatrix4f();
+			lMat.invert();
+			lMat.mul(sc.getProjectionMatrix(mViewportWidth, mViewportHeight), lMat);
+
+			// By Column (?)
+			float lightMatrix[] = { lMat.m00, lMat.m10, lMat.m20, lMat.m30,
+					lMat.m01, lMat.m11, lMat.m21, lMat.m31,
+					lMat.m02, lMat.m12, lMat.m22, lMat.m32,
+					lMat.m03, lMat.m13, lMat.m23, lMat.m33 };
+
+			gl.glUniformMatrix4fv(mLightMatrixLocation+j, 1, false, lightMatrix, 0);
+			
+			gl.glUniform1f(mBiasLocation+j, sc.getBias());
+			gl.glUniform1f(mShadowMapWidthLocation+j, sc.getShadowMapWidth());
+			gl.glUniform1f(mShadowMapHeightLocation+j, sc.getShadowMapHeight());
+			gl.glUniform1f(mShadowSampleWidthLocation+j, sc.getShadowSampleWidth());
+			gl.glUniform1f(mLightWidthLocation+j, sc.getLightWidth());
+			
+			Light light = sc.getShadowLight();
+			// Assuming the light is in the same place as the camera...
+			Point3f eyespacePosition = camera.transformPointFromWorldSpace(light.transformPointToWorldSpace(new Point3f()));
+			
+			/* Send light color and eyespace position to the ubershader. */
+			gl.glUniform3f(mShadowCamPositionLocation + j, eyespacePosition.x, eyespacePosition.y, eyespacePosition.z);
+			gl.glUniform3f(mShadowLightColorsLocation + j, light.getColor().x, light.getColor().y, light.getColor().z);
+			
+			if (light instanceof PointLight)
+			{
+				gl.glUniform3f(mShadowLightAttenuationsLocation + j, 
+						((PointLight)light).getConstantAttenuation(), 
+						((PointLight)light).getLinearAttenuation(), 
+						((PointLight)light).getQuadraticAttenuation());
+			}
+			else
+			{
+				gl.glUniform3f(mShadowLightAttenuationsLocation + j, 1.0f, 0.0f, 0.0f);
+			}
+			int min = Integer.MAX_VALUE;
+			int max = Integer.MIN_VALUE;
+			try {
+				int[] pixels = getShadowCameraFBO(gl, sc).getDepthTexture().getPixelData(gl);
+				for (int i=0; i<pixels.length; i++) {
+					min = (int)Math.min(min, pixels[i]);
+					max = (int)Math.max(max, pixels[i]);
+					if (i%745==0) {
+						System.out.println(pixels[i]);
+					}
+				}
+				System.out.println("The smallest value in the float array is: "+min+" and the largest is "+max);
+			} finally {
+				
+			}
+			getShadowCameraFBO(gl, sc).getDepthTexture().bind(gl, mShadowMapPositionLocation[j]);//.getDepthTexture().bind(gl, mShadowTextureLocation);
+			
+			j += 1;
+		}
+		
+		//////////////////////////////////////////////////////////////////////////////////////////////////////////
 		
 		/* Ubershader needs to know how many lights. */
 		gl.glUniform1i(mNumLightsUniformLocation, mLights.size());
@@ -383,6 +475,9 @@ public class Renderer
 		for (int i = 0; i < GBuffer_FinalSceneIndex; ++i)
 		{
 			mGBufferFBO.getColorTexture(i).unbind(gl);
+		}
+		for (ShadowCamera sc : mShadowCameras) {
+			getShadowCameraFBO(gl, sc).getDepthTexture().unbind(gl);
 		}
 
 		/* Unbind rendering target. */
@@ -613,7 +708,11 @@ public class Renderer
 			{
 				throw new OpenGLException("Material requires vertex attribute '" + attrib + "' which is not present in mesh's vertexAttribData.");
 			}
-			else
+			else if (attribData.capacity()==0)
+			{	
+				continue;
+			} 
+			else 
 			{
 				gl.glEnableVertexAttribArray(location);
 				gl.glVertexAttribPointer(location, attribData.capacity() / att.getVertexCount(), GL2.GL_FLOAT, false, 0, attribData);
@@ -624,9 +723,8 @@ public class Renderer
 		HashMap<String, Integer> fbos = mesh.getMaterial().getRequiredFBOs();
 		for (String fbo : fbos.keySet()) {
 			if (fbo.equals("Diffuse")) {
-				System.out.println("Diffuse Buffer at "+fbos.get(fbo));
+				//System.out.println("Diffuse Buffer at "+fbos.get(fbo));
 				mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).bind(gl, fbos.get(fbo));
-				
 			} else if (fbo.equals("Position")){
 				mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, fbos.get(fbo));
 			} else if (fbo.equals("Material1")){
@@ -716,10 +814,19 @@ public class Renderer
 	 */
 	protected FramebufferObject getShadowCameraFBO(GL2 gl, ShadowCamera sc) throws OpenGLException {
 		if (!mShadowCameraFBOs.containsKey(sc)) {
-			FramebufferObject fbo = new FramebufferObject(gl, Format.RGBA, Datatype.FLOAT16, sc.getShadowWidth(), sc.getShadowHeight(), GBuffer_Count, true, false);
+			FramebufferObject fbo = new FramebufferObject(gl, Format.RGBA, Datatype.FLOAT16, 
+					(int)sc.getShadowMapWidth(), (int)sc.getShadowMapHeight(), GBuffer_Count, true, false);
 			mShadowCameraFBOs.put(sc, fbo);
 		}
 		return mShadowCameraFBOs.get(sc);
+	}
+	
+	/**
+	 * Adds a shadow camera object to the scene to cast shadows and light.
+	 */
+	public void addShadowCamera(ShadowCamera sc) {
+		sc.resize(mViewportWidth, mViewportHeight);
+		this.mShadowCameras.add(sc);
 	}
 	
 	/**
@@ -765,8 +872,29 @@ public class Renderer
 
 			/* Get the maximum number of lights the shader supports. */
 			mMaxLightsInUberShader = mUberShader.getUniformArraySize(gl, "LightPositions");
+			mMaxShadowsInUberShader = mUberShader.getUniformArraySize(gl, "ShadowMaps");
 			
+			mNumShadowMapsLocation = mUberShader.getUniformLocation(gl, "NumShadowMaps");
+			mShadowModeLocation = mUberShader.getUniformLocation(gl, "ShadowMode");
 			
+			mShadowMapsLocation = mUberShader.getUniformLocation(gl, "ShadowMaps");
+			mShadowCamPositionLocation = mUberShader.getUniformLocation(gl, "ShadowCamPosition"); 
+			mBiasLocation = mUberShader.getUniformLocation(gl, "bias");
+			mShadowSampleWidthLocation = mUberShader.getUniformLocation(gl, "ShadowSampleWidth"); 
+			mShadowMapWidthLocation = mUberShader.getUniformLocation(gl, "ShadowMapWidth");
+			mShadowMapHeightLocation = mUberShader.getUniformLocation(gl, "ShadowMapHeight");
+			mLightWidthLocation = mUberShader.getUniformLocation(gl, "LightWidth");
+			mShadowLightAttenuationsLocation = mUberShader.getUniformLocation(gl, "ShadowLightAttenuations"); 
+			mShadowLightColorsLocation = mUberShader.getUniformLocation(gl, "ShadowLightColors");
+			mLightMatrixLocation = mUberShader.getUniformLocation(gl, "LightMatrix");
+			mInverseViewMatrixLocation = mUberShader.getUniformLocation(gl, "InverseViewMatrix"); 
+			
+			mShadowMapPositionLocation = new int[mMaxShadowsInUberShader];
+			for (int i = 0; i < mMaxShadowsInUberShader; i++) {
+				String uniformName = String.format("ShadowMaps[%d]", i);
+				mShadowMapPositionLocation[i] =  mUberShader.getUniformLocation(gl, uniformName);
+				System.out.println(mShadowMapPositionLocation[i]);
+			}
 			
 			
 			/* Load the visualization shader. */
@@ -818,11 +946,19 @@ public class Renderer
 		{
 			mGBufferFBO.releaseGPUResources(gl);
 		}
+		for (FramebufferObject fbo : mShadowCameraFBOs.values()) {
+			fbo.releaseGPUResources(gl);
+		}
+		mShadowCameraFBOs.clear();
 		
 		/* Make a new gbuffer with the new size. */
 		try
 		{
 			mGBufferFBO = new FramebufferObject(gl, Format.RGBA, Datatype.FLOAT16, width, height, GBuffer_Count, true, true);
+
+			for (ShadowCamera sc : mShadowCameras) {
+				sc.resize(width, height);
+			}
 		}
 		catch (OpenGLException err)
 		{

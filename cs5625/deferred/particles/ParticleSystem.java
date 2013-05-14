@@ -84,6 +84,7 @@ public class ParticleSystem extends Mesh {
 		P.removeAll(toRemove);
 	}
 	public int size() {
+		updateAttribs();
 		return numParticles;
 	}
 
