@@ -45,7 +45,7 @@ void main() {
  		alpha = max(1.0-(x*x+y*y)/(r*r), 0.0);
  	} 
  	// Texture!!!
- 	vec3 fromTex = texture2D(SmokeTexture, TexCoord0);
+ 	vec3 fromTex = texture2D(SmokeTexture, TexCoord0).xyz;
 	color = vec4(1.0, 1.0, 1.0, alpha*fromTex.r);
 	
  	gl_FragColor = vec4(color.rgb*color.a, color.a);

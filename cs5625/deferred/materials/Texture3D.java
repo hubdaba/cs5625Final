@@ -7,6 +7,7 @@ import javax.media.opengl.GL2;
 import javax.vecmath.Point3f;
 
 import cs5625.deferred.misc.OpenGLException;
+import cs5625.deferred.scenegraph.TerrainRenderer;
 
 public class Texture3D extends Texture {
 
@@ -41,6 +42,7 @@ public class Texture3D extends Texture {
 
 			mWidth = width;
 			mHeight = height;
+			mDepth = depth;
 			mFormat = format;
 			mDatatype = datatype;
 
@@ -87,12 +89,77 @@ public class Texture3D extends Texture {
 		return mTarget;
 	}
 	
+	private float mix(float val1, float val2, float frac) {
+		return val1 + (val2 - val1) * frac;
+	}
+	
+	private float readTexel(int i, int j, int k) {
+		int yDim = TerrainRenderer.NUM_VOXELS + 1;
+		int zDim = (int) Math.pow(TerrainRenderer.NUM_VOXELS + 1, 2);
+		return texture_val[(i + j * yDim + (k + 1) * zDim * 4)];
+	}
+	
+	public int hasTriangles(int i, int j, int k) {
+		float tex1 = readTexel(i, j, k);
+		float tex2 = readTexel(i + 1, j, k);
+		float tex3 = readTexel(i + 1, j + 1, k);
+		float tex4 = readTexel(i, j + 1, k);
+		float tex5 = readTexel(i, j, k + 1);
+		float tex6 = readTexel(i + 1, j, k + 1);
+		float tex7 = readTexel(i + 1, j + 1, k + 1);
+		float tex8 = readTexel(i, j + 1, k + 1);
+		int voxelCode = 0;
+		if (tex1 <= 0) {
+			voxelCode = voxelCode | 1;
+		}
+		if (tex2 <= 0) {
+			voxelCode = voxelCode | 2;
+		}
+		if (tex3 <= 0) {
+			voxelCode = voxelCode | 4;
+		}
+		if (tex4 <= 0) {
+			voxelCode = voxelCode | 8;
+		}
+		if (tex5 <= 0) {
+			voxelCode = voxelCode | 16;
+		}
+		if (tex6 <= 0) {
+			voxelCode = voxelCode | 32;
+		}
+		if (tex7 <= 0) {
+			voxelCode = voxelCode | 64;
+		}
+		if (tex8 <= 0) {
+			voxelCode = voxelCode | 128;
+		}	
+		return voxelCode;
+	}
+	
 	public float sample3D(Point3f location) throws OpenGLException {
-		int xcor = (int) (mWidth * location.x);
-		int ycor = (int) (mHeight * location.y);
-		int zcor = (int) (mDepth * location.z) + 1;
-		float texture_value = texture_val[(xcor + ycor * 20 + zcor * 400) * 4];
-		return texture_value;
+		int xcor = (int) Math.floor(TerrainRenderer.NUM_VOXELS * location.x);
+		int ycor = (int) Math.floor(TerrainRenderer.NUM_VOXELS * location.y);
+		int zcor = (int) Math.floor(TerrainRenderer.NUM_VOXELS * location.z) + 1;
+		int yDim = TerrainRenderer.NUM_VOXELS + 1;
+		int zDim = (int) Math.pow(TerrainRenderer.NUM_VOXELS + 1, 2);
+		float texture_value1 = texture_val[(xcor + ycor * yDim + zcor * zDim) * 4];
+		float texture_value2 = texture_val[((xcor + 1) + (ycor) * yDim + zcor * zDim) * 4];
+		float texture_value3 = texture_val[(xcor + (ycor + 1) * yDim + zcor * zDim) * 4];
+		float texture_value4 = texture_val[((xcor + 1) + (ycor + 1) * yDim + zcor * zDim) * 4];
+		float texture_value5 = texture_val[((xcor) + (ycor) * yDim + (zcor + 1) * zDim) * 4];
+		float texture_value6 = texture_val[((xcor + 1) + (ycor) * yDim + (zcor + 1) * zDim) * 4];
+		float texture_value7 = texture_val[(xcor + (ycor + 1) * yDim + (zcor + 1) * zDim) * 4];
+		float texture_value8 = texture_val[((xcor + 1) + (ycor + 1) * yDim + (zcor + 1) * zDim) * 4];
+		float xFrac = location.x * TerrainRenderer.NUM_VOXELS - xcor;
+		float yFrac = location.y * TerrainRenderer.NUM_VOXELS - ycor;
+		float zFrac = location.z * TerrainRenderer.NUM_VOXELS - zcor;
+		return mix(
+					mix(mix(texture_value1, texture_value2, xFrac), 
+						mix(texture_value3, texture_value4, xFrac), yFrac),
+					mix(mix(texture_value5, texture_value6, xFrac),
+						mix(texture_value7, texture_value8, xFrac), yFrac),
+					zFrac);
+		
 	}
 
 	public void getPixelData(GL2 gl) throws OpenGLException {
@@ -100,7 +167,7 @@ public class Texture3D extends Texture {
 		int glformat = format.toGLformat();
 		mTarget = GL2.GL_TEXTURE_3D;
 
-		FloatBuffer buffer = FloatBuffer.allocate(21 * 21 * 22 *  4);
+		FloatBuffer buffer = FloatBuffer.allocate(mHeight * mWidth * mDepth *  4);
 		bind(gl, 0);
 		gl.glGetTexImage(mTarget, 0, glformat, gltype, buffer);
 		float[] array = buffer.array();
@@ -112,7 +179,7 @@ public class Texture3D extends Texture {
 	@Override
 	public void releaseGPUResources(GL2 gl) {
 		super.releaseGPUResources(gl);
-		texture_val = null;
+		//texture_val = null;
 	}
 
 

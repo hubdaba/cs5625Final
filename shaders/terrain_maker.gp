@@ -38,6 +38,7 @@ vec3 vertexInterp(vec3 v0, float l0, vec3 v1, float l1) {
 
 void main() {
 
+ // int cubeindex = int(round(gl_PositionIn[0].a));
   int cubeindex = 0;
   
   float cubeVal0 = cubeVal(0);
@@ -67,18 +68,18 @@ void main() {
  
   
  
-    vertlist[0] = vertexInterp(cubePos(0), cubeVal(0), cubePos(1), cubeVal(1));
-    vertlist[1] = vertexInterp(cubePos(1), cubeVal(1), cubePos(2), cubeVal(2));
-    vertlist[2] = vertexInterp(cubePos(2), cubeVal(2), cubePos(3), cubeVal(3));
-    vertlist[3] = vertexInterp(cubePos(3), cubeVal(3), cubePos(0), cubeVal(0));
-    vertlist[4] = vertexInterp(cubePos(4), cubeVal(4), cubePos(5), cubeVal(5));
-    vertlist[5] = vertexInterp(cubePos(5), cubeVal(5), cubePos(6), cubeVal(6));
-    vertlist[6] = vertexInterp(cubePos(6), cubeVal(6), cubePos(7), cubeVal(7));
-    vertlist[7] = vertexInterp(cubePos(7), cubeVal(7), cubePos(4), cubeVal(4));
-    vertlist[8] = vertexInterp(cubePos(0), cubeVal(0), cubePos(4), cubeVal(4));
-    vertlist[9] = vertexInterp(cubePos(1), cubeVal(1), cubePos(5), cubeVal(5));
-    vertlist[10] = vertexInterp(cubePos(2), cubeVal(2), cubePos(6), cubeVal(6));
-    vertlist[11] = vertexInterp(cubePos(3), cubeVal(3), cubePos(7), cubeVal(7));
+    vertlist[0] = vertexInterp(cubePos(0), cubeVal0, cubePos(1), cubeVal1);
+    vertlist[1] = vertexInterp(cubePos(1), cubeVal1, cubePos(2), cubeVal2);
+    vertlist[2] = vertexInterp(cubePos(2), cubeVal2, cubePos(3), cubeVal3);
+    vertlist[3] = vertexInterp(cubePos(3), cubeVal3, cubePos(0), cubeVal0);
+    vertlist[4] = vertexInterp(cubePos(4), cubeVal4, cubePos(5), cubeVal5);
+    vertlist[5] = vertexInterp(cubePos(5), cubeVal5, cubePos(6), cubeVal6);
+    vertlist[6] = vertexInterp(cubePos(6), cubeVal6, cubePos(7), cubeVal7);
+    vertlist[7] = vertexInterp(cubePos(7), cubeVal7, cubePos(4), cubeVal4);
+    vertlist[8] = vertexInterp(cubePos(0), cubeVal0, cubePos(4), cubeVal4);
+    vertlist[9] = vertexInterp(cubePos(1), cubeVal1, cubePos(5), cubeVal5);
+    vertlist[10] = vertexInterp(cubePos(2), cubeVal2, cubePos(6), cubeVal6);
+    vertlist[11] = vertexInterp(cubePos(3), cubeVal3, cubePos(7), cubeVal7);
   
   int i = 0;
   

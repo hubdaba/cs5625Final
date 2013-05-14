@@ -117,6 +117,7 @@ public class TerrainBlockRenderer extends SuperBlock {
 			mTerrainLowerCornerUniformLocation = mTerrainShader.getUniformLocation(gl, "LowerCorner");
 			mTerrainNumVoxelsUniformLocation = mTerrainShader.getUniformLocation(gl, "NumVoxels");
 			mTerrainBlockSizeUniformLocation = mTerrainShader.getUniformLocation(gl, "BlockSize");
+			
 			OpenGLException.checkOpenGLError(gl);
 
 			initialized = true;
@@ -229,7 +230,7 @@ public class TerrainBlockRenderer extends SuperBlock {
 		for (int i = 0; i < numVoxels; i++) {
 			for (int j = 0; j < numVoxels; j++) {
 				for (int k = 0; k < numVoxels; k++) {
-					gl.glVertex3d(((double)k), ((double)j), ((double)i));
+						gl.glVertex4i((k), (j), (i), 0);
 				}
 			}
 		}

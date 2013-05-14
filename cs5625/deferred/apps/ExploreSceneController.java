@@ -51,21 +51,21 @@ import cs5625.deferred.scenegraph.TerrainRenderer;
  */
 public class ExploreSceneController extends SceneController
 {
-	
+
 	public static float EXPLOSION_RADIUS = 5.0f;
-	
+
 	/* Keeps track of camera's orbit position. Latitude and longitude are in degrees. */
 	private float mCameraLongitude = 50.0f, mCameraLatitude = -40.0f;
 	private Point3f mCameraPosition = new Point3f(12f, 12f, 12f);
 	private Vector2f mCameraVelocity = new Vector2f();
 	private Vector3f rightVector = new Vector3f();
 	private Vector3f forwardVector = new Vector3f();
-	
+
 	private float tau = 0.65f;
 	private float decay = 0.999f;	// Just for sanity, in case a call is missed (and it helped in diagnostics)
 	private Vector2f targetVelocity = new Vector2f();
 	private float maxSpeed = 5.0f;
-	
+
 	private float rotScale = 0.3f;
 
 	/* Used to calculate mouse deltas to orbit the camera in mouseDragged(). */ 
@@ -75,7 +75,7 @@ public class ExploreSceneController extends SceneController
 	private ExplosionHandler explosionHandler;
 
 	private int millisec = 40;
-	
+
 	// GAME PARAMETERS
 	private float gStepSize = 0.1f;
 	private float gMaxDistance = 250f;		// Maybe the far plane distance?  Maybe arbitrary?
@@ -104,7 +104,7 @@ public class ExploreSceneController extends SceneController
 
 			light.setPosition(new Point3f(50.0f, 180.0f, 100.0f));
 			mSceneRoot.addChild(light);	
-			
+
 			/*
 			SmokeSystem smoke = new SmokeSystem();
 			Particle p = new Particle();
@@ -115,7 +115,7 @@ public class ExploreSceneController extends SceneController
 			p.x = new Point3d(0.0, -2.0, 0.0);
 			p.radius = 4f;
 			smoke.addParticle(p); */
-			
+
 			/*
 			SmokeSystem smoke = new SmokeSystem();
 			int N = 20;
@@ -156,9 +156,9 @@ public class ExploreSceneController extends SceneController
 		mCameraVelocity.scaleAdd(1.0f-tau, targetVelocity, mCameraVelocity);
 		mCameraPosition.scaleAdd((float)dt * mCameraVelocity.x, rightVector, mCameraPosition);
 		mCameraPosition.scaleAdd((float)dt * mCameraVelocity.y, forwardVector, mCameraPosition);
-		
+
 		mSceneRoot.animate((float)dt);
-		
+
 		updateCamera();
 		requiresRender();
 	}
@@ -228,7 +228,7 @@ public class ExploreSceneController extends SceneController
 			mCameraLatitude = 89.0f * Math.signum(mCameraLatitude);
 		}
 	}
-	
+
 	@Override
 	public void mouseClicked(MouseEvent mouse) {
 		if (mouse.getButton()==3) {		// Right Click
@@ -236,32 +236,33 @@ public class ExploreSceneController extends SceneController
 			Util.rotateTuple(mCamera.getOrientation(), forwardVector);
 			forwardVector.normalize();
 			Point3f newSplosion = findWall(mCamera.getWorldspacePosition(), forwardVector);
-			if (newSplosion != null) 
+			if (newSplosion != null)  {
 				explosionHandler.addExplosion(new Explosion(newSplosion, EXPLOSION_RADIUS));
-			try {
-				List<Geometry> cubes = Geometry.load("models/cube.obj", true, true);
-				SceneObject cubeObject = new SceneObject();
-				cubeObject.setPosition(new Point3f(newSplosion));
-				cubeObject.addGeometry(cubes);
-				//cubeObject.setScale(100f);
-				mSceneRoot.addChild(cubeObject);
-			} catch (ScenegraphException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				try {
+					List<Geometry> cubes = Geometry.load("models/cube.obj", true, true);
+					SceneObject cubeObject = new SceneObject();
+					cubeObject.setPosition(new Point3f(newSplosion));
+					cubeObject.addGeometry(cubes);
+					//cubeObject.setScale(100f);
+					mSceneRoot.addChild(cubeObject);
+				} catch (ScenegraphException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 		}
 	}
-	
+
 	public void keyTyped(KeyEvent key) {
 		super.keyTyped(key);
 		char c = key.getKeyChar();
 		if (c == ' ') {
 			explosionHandler.addExplosion(
-						new Explosion(mCamera.getPosition(), EXPLOSION_RADIUS));
-			
+					new Explosion(mCamera.getPosition(), EXPLOSION_RADIUS));
+
 			try {
 				List<Geometry> cubes = Geometry.load("models/cube.obj", true, true);
 				SceneObject cubeObject = new SceneObject();
@@ -278,8 +279,8 @@ public class ExploreSceneController extends SceneController
 			}
 		}
 	}
-	
-	
+
+
 
 	public void keyPressed(KeyEvent key)
 	{
@@ -298,7 +299,7 @@ public class ExploreSceneController extends SceneController
 			targetVelocity.x = +maxSpeed;
 			break;
 		}
-		
+
 	}
 	public void keyReleased(KeyEvent key)
 	{
@@ -310,7 +311,7 @@ public class ExploreSceneController extends SceneController
 			targetVelocity.x = 0.0f;
 		}
 	}
-	
+
 	public Point3f findWall(Point3f start, Vector3f dir) {
 		Vector3f dr = new Vector3f();
 		dr.normalize(dir);
@@ -324,7 +325,7 @@ public class ExploreSceneController extends SceneController
 				distTraveled += gStepSize;
 				check.add(dr);
 				val = terrainRenderer.evaluate(check);
-		//	System.out.println(val);
+				//	System.out.println(val);
 				if (distTraveled > gMaxDistance) {
 					return null;
 				}
@@ -333,8 +334,8 @@ public class ExploreSceneController extends SceneController
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
-	//	System.out.println("HIT with "+val);
+
+		//	System.out.println("HIT with "+val);
 		return check;
 	}
 
