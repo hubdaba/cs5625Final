@@ -21,6 +21,7 @@ import cs5625.deferred.lighting.ShadowCamera;
 import cs5625.deferred.materials.Material;
 import cs5625.deferred.materials.Texture.Datatype;
 import cs5625.deferred.materials.Texture.Format;
+import cs5625.deferred.materials.Texture2D;
 import cs5625.deferred.materials.UnshadedMaterial;
 import cs5625.deferred.misc.OpenGLException;
 import cs5625.deferred.misc.PerlinNoise;
@@ -103,6 +104,12 @@ public class Renderer
 	private int mLightAttenuationsUniformLocation = -1;
 	private int mNumLightsUniformLocation = -1;
 	
+	private int mSkyTextureUnit;
+	private Texture2D skyTexture;
+
+	private int mViewMatrixUniformLocation = -1;
+	private int mScreenHeightUniformLocation = -1;
+	private int mScreenWidthUniformLocation = -1;
 	
 	/* The size of the light uniform arrays in the ubershader. 
 	 * This is queried directly from the shader file. */
@@ -386,12 +393,24 @@ public class Renderer
 		
 		/* Ubershader needs to know how many lights. */
 		gl.glUniform1i(mNumLightsUniformLocation, mLights.size());
+		Matrix4f view = new Matrix4f(camera.getWorldSpaceTransformationMatrix4f());
+		view.transpose();
+		float viewMatrix[] = {
+			view.m00, view.m10, view.m20, view.m30,
+			view.m01, view.m11, view.m21, view.m31,
+			view.m02, view.m12, view.m22, view.m32,
+			view.m03, view.m13, view.m23, view.m33
+		};
+		gl.glUniformMatrix4fv(mViewMatrixUniformLocation, 
+				1, false, viewMatrix, 0);
+		gl.glUniform1f(mScreenHeightUniformLocation, mViewportHeight);
+		gl.glUniform1f(mScreenWidthUniformLocation, mViewportWidth);
 		
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		/* Bind Shadowing Information */
 		gl.glUniform1i(mNumShadowMapsLocation, mShadowCameras.size());
 		gl.glUniform1i(mShadowModeLocation, mShadowMode);
-		
+		this.skyTexture.bind(gl, mSkyTextureUnit);
 		int j=0;
 		for (ShadowCamera sc : mShadowCameras) {
 			/* Set InverseViewMatrix, which sends points from the (eye) camera local space into world space. */
@@ -454,6 +473,7 @@ public class Renderer
 			j += 1;
 		}
 		
+		
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////
 	
 		/* Let there be light! */
@@ -469,6 +489,7 @@ public class Renderer
 		for (ShadowCamera sc : mShadowCameras) {
 			getShadowCameraFBO(gl, sc).getDepthTexture().unbind(gl);
 		}
+		this.skyTexture.unbind(gl);
 
 		/* Unbind rendering target. */
 		mGBufferFBO.unbind(gl);
@@ -852,6 +873,12 @@ public class Renderer
 			mLightColorsUniformLocation = mUberShader.getUniformLocation(gl, "LightColors");
 			mLightAttenuationsUniformLocation = mUberShader.getUniformLocation(gl, "LightAttenuations");
 			mNumLightsUniformLocation = mUberShader.getUniformLocation(gl, "NumLights");
+			
+			mViewMatrixUniformLocation = mUberShader.getUniformLocation(gl, "ViewMatrix");
+			mScreenWidthUniformLocation = mUberShader.getUniformLocation(gl, "ScreenWidth");
+			mScreenHeightUniformLocation = mUberShader.getUniformLocation(gl, "ScreenHeight");
+			this.skyTexture = Texture2D.load(gl, "textures/stars.jpg", false);
+			
 
 			/* Get the maximum number of lights the shader supports. */
 			mMaxLightsInUberShader = mUberShader.getUniformArraySize(gl, "LightPositions");
@@ -879,9 +906,6 @@ public class Renderer
 			gl.glUniform1i(mUberShader.getUniformLocation(gl, "PositionBuffer"), 1);
 			gl.glUniform1i(mUberShader.getUniformLocation(gl, "MaterialParams1Buffer"), 2);
 			gl.glUniform1i(mUberShader.getUniformLocation(gl, "MaterialParams2Buffer"), 3);
-			gl.glUniform1i(mUberShader.getUniformLocation(gl, "SilhouetteBuffer"), 4);
-			gl.glUniform1i(mUberShader.getUniformLocation(gl, "SSAOBuffer"), 5);
-			gl.glUniform1i(mUberShader.getUniformLocation(gl, "ParticleBuffer"), 6);
 			gl.glUniform3f(mUberShader.getUniformLocation(gl, "SkyColor"), 0.3f, 0.3f, 0.3f);
 			
 			int startTexNumber = 7;
@@ -891,7 +915,8 @@ public class Renderer
 				gl.glUniform1i(mUberShader.getUniformLocation(gl, uniformName), i+startTexNumber);
 				mShadowMapPositionLocation[i] =  i+startTexNumber;
 			}
-			
+			this.mSkyTextureUnit = 4;
+			gl.glUniform1i(mUberShader.getUniformLocation(gl, "StarTexture"), this.mSkyTextureUnit);
 			mUberShader.unbind(gl);			
 			
 			
