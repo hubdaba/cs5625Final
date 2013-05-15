@@ -32,9 +32,8 @@ public class StageLight extends ShadowCamera {
 		rotAxis.cross(new Vector3f(0.0f, 0.0f, -1.0f), toObject);
 		rotAxis.normalize();
 		Quat4f orientation = new Quat4f();
-		orientation.set(new AxisAngle4f(-angle, rotAxis.x, rotAxis.y, rotAxis.z));
+		orientation.set(new AxisAngle4f(rotAxis.x, rotAxis.y, rotAxis.z, angle));
 		this.setOrientation(orientation);
-		this.setOrientation(target.getOrientation());
 	}
 	@Override
 	public void update(Observerable o) {

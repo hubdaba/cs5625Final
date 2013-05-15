@@ -87,10 +87,18 @@ float DepthToLinear(float value)
 
 /** Returns how shadowed this coordinate is. 0 = shadowed, 1 = not shadowed, anywhere in between
  */
-float getShadowVal(vec4 shadowCoord, vec2 offset, int shadowSource) 
+vec4 getShadowVal(vec4 shadowCoord, vec2 offset, int shadowSource) 
 {
-	//return -texture2D(ShadowMaps[shadowSource], shadowCoord.xy + offset).z;
-	if (shadowCoord.z <= texture2D(ShadowMaps[shadowSource], shadowCoord.xy + offset).z + bias[shadowSource]) {
+	// If your fragment is behind the camera, assume no occlusion
+	if (shadowCoord.z >= 0.0) {  return 1.0;  }
+	
+	float texDepth = texture2D(ShadowMaps[shadowSource], shadowCoord.xy + offset).z;
+	
+	// If the shadowmap only sees the background, assume unoccluded
+	if (texDepth == 0.0) {  return 1.0;  }
+	
+	// Otherwise, we have a valid occluder to test.  Test it!	
+	if (shadowCoord.z <= texDepth + bias[shadowSource]) {
 		return 1.0;
 	}
 	return 0.0;
@@ -100,7 +108,7 @@ float getShadowVal(vec4 shadowCoord, vec2 offset, int shadowSource)
  *
  * @param shadowCoord The location of the position in the light projection space
  */
- float getDefaultShadowMapVal(vec4 shadowCoord, int shadowSource)
+ vec4 getDefaultShadowMapVal(vec4 shadowCoord, int shadowSource)
  {
 	return getShadowVal(shadowCoord, vec2(0.0), shadowSource);
  }
@@ -156,7 +164,7 @@ float getPCFShadowMapVal(vec4 shadowCoord, int shadowSource)
  	float shade = 0.0;
  	for (float i=-sampleWidth/ShadowMapWidth[shadowSource]; i<=sampleWidth/ShadowMapWidth[shadowSource]; i+=1.0/ShadowMapWidth[shadowSource]) {
  		for (float j=-sampleWidth/ShadowMapHeight[shadowSource]; j<=sampleWidth/ShadowMapHeight[shadowSource]; j+=1.0/ShadowMapHeight[shadowSource]) {
-			shade += getShadowVal(shadowCoord, vec2(i,j), shadowSource);
+			shade += getShadowVal(shadowCoord, vec2(i,j), 0);
  		}
  	}
  	float width = 2.0 * sampleWidth + 1.0;
@@ -169,7 +177,7 @@ float getPCFShadowMapVal(vec4 shadowCoord, int shadowSource)
  *
  * @return A 0-1 value for how shadowed the object is. 0 = shadowed and 1 = lit
  */
-float getShadowStrength(vec3 position, int shadowSource) {
+vec4 getShadowStrength(vec3 position, int shadowSource) {
 	// DONE PA3: Transform position to ShadowCoord
 	vec4 unshiftedShadowCoord = LightMatrix[shadowSource] * InverseViewMatrix[shadowSource] * vec4(position, 1.0);
 	if (unshiftedShadowCoord.w != 0.0) {
@@ -177,18 +185,18 @@ float getShadowStrength(vec3 position, int shadowSource) {
 	}
 	// Multiply by bias
 	vec4 ShadowCoord = vec4( unshiftedShadowCoord.xyz * 0.5 + 0.5, 1.0 );
-	
 	if (ShadowMode == DEFAULT_SHADOW_MAP)
 	{
-		return getDefaultShadowMapVal(ShadowCoord, shadowSource)+1.0;
+		//return ShadowCoord.z;
+		return getDefaultShadowMapVal(ShadowCoord, 0);
 	}
 	else if (ShadowMode == PCF_SHADOW_MAP)
 	{
-		return getPCFShadowMapVal(ShadowCoord, shadowSource);
+		return vec4(getPCFShadowMapVal(ShadowCoord, 0));
 	}
 	else
 	{
-		return getPCSSShadowMapVal(ShadowCoord, shadowSource);
+		return vec4(getPCSSShadowMapVal(ShadowCoord, 0));
 	}
 }
 
@@ -293,7 +301,7 @@ void main()
 		for (int j = 0; j < NumShadowMaps; ++j)
 		{
 			gl_FragColor.rgb += shadeLambertian(diffuse, position, normal, ShadowCamPosition[j], ShadowLightColors[j], ShadowLightAttenuations[j]) * 
-									getShadowStrength(position, j);;
+									getShadowStrength(position, j).x;
 		}
 	}
 	else if (materialID == BLINNPHONG_MATERIAL_ID)
@@ -309,7 +317,7 @@ void main()
 		{
 			gl_FragColor.rgb += shadeBlinnPhong(diffuse, materialParams1.gba, materialParams2.a,
 										position, normal, ShadowCamPosition[j], ShadowLightColors[j], ShadowLightAttenuations[j]) * 
-									getShadowStrength(position, j);;
+									getShadowStrength(position, j).x;
 		}
 	}
 	else if (materialID == TERRAIN_MATERIAL_ID)
@@ -323,7 +331,7 @@ void main()
 		for (int j = 0; j < NumShadowMaps; ++j)
 		{
 			gl_FragColor.rgb += shadeLambertian(diffuse, position, normal, ShadowCamPosition[j], ShadowLightColors[j], ShadowLightAttenuations[j]) * 
-									getShadowStrength(position, j);;
+									getShadowStrength(position, j).x;
 		}
 	}
 	else

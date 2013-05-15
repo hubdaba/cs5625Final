@@ -102,7 +102,7 @@ public class ExploreSceneController extends SceneController
 			light.setLinearAttenuation(0.0f);
 			light.setQuadraticAttenuation(0.0f);
 
-			light.setPosition(new Point3f(50.0f, 180.0f, 100.0f));
+			light.setPosition(new Point3f(20.0f, 20.0f, 20.0f));
 			//mSceneRoot.addChild(light);	
 			
 			StageLight sl = new StageLight(light, mCamera);
@@ -300,12 +300,10 @@ public class ExploreSceneController extends SceneController
 			distTraveled += gStepSize;
 			check.add(dr);
 			val = QuadSampler.evaluate(check);
-			System.out.println(val);
 			if (distTraveled > gMaxDistance) {
 				return null;
 			}
 		}
-		System.out.println("HIT with "+val);
 		return check;
 	}
 

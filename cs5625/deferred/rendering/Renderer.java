@@ -154,32 +154,15 @@ public class Renderer
 				mRenderingOpaque = true;
 				fillGBuffer(gl, sceneRoot, sc);
 			}
-			for (ShadowCamera sc : mShadowCameras) {
-				int min = Integer.MAX_VALUE;
-				int max = Integer.MIN_VALUE;
-				try {
-					int[] pixels = getShadowCameraFBO(gl, sc).getDepthTexture().getPixelData(gl);
-					for (int i=0; i<pixels.length; i++) {
-						min = (int)Math.min(min, pixels[i]);
-						max = (int)Math.max(max, pixels[i]);
-						if (i%745==0) {
-							//System.out.println(pixels[i]);
-						}
-					}
-					System.out.println("The smallest value in the float array is: "+min+" and the largest is "+max);
-				} finally {
-					
-				}
-			}
 			
 			mRenderingOpaque = true;
 			/* 1. Fill the gbuffer given this scene and camera. */ 
 			fillGBuffer(gl, sceneRoot, camera);
 			
-			//mRenderingOpaque = false;
+			mRenderingOpaque = false;
 			/* 2. Fill the particle buffer, utilizing the depth values aquired by filling
 			 * the GBuffer */
-			//fillGBuffer(gl, sceneRoot, camera);
+			fillGBuffer(gl, sceneRoot, camera);
 			
 			/* 3. Apply deferred lighting to the g-buffer. At this point, the opaque scene has been rendered. */
 			lightGBuffer(gl, camera);
@@ -209,10 +192,6 @@ public class Renderer
 	 */
 	protected void finalPass(GL2 gl) throws OpenGLException
 	{
-		if (mShadowCameras.size()>0 && false) {
-			Util.renderTextureFullscreen(gl, mShadowCameraFBOs.get(mShadowCameras.get(0)).getDepthTexture());
-			return;
-		}
 		
 		if (mPreviewIndex >= 6 && mPreviewIndex <= 8)
 		{
@@ -430,7 +409,6 @@ public class Renderer
 			
 			/* Set LightMatrix, which sends points from world space into (light) camera clip coordinates space. */
 			Matrix4f lMat = sc.getWorldSpaceTransformationMatrix4f();
-			System.out.println(lMat);
 			lMat.invert();
 			lMat.mul(sc.getProjectionMatrix(sc.getShadowMapWidth(), sc.getShadowMapHeight()), lMat);
 
@@ -731,7 +709,7 @@ public class Renderer
 		HashMap<String, Integer> fbos = mesh.getMaterial().getRequiredFBOs();
 		for (String fbo : fbos.keySet()) {
 			if (fbo.equals("Diffuse")) {
-				//System.out.println("Diffuse Buffer at "+fbos.get(fbo));
+				System.out.println("Diffuse Buffer at "+fbos.get(fbo));
 				mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).bind(gl, fbos.get(fbo));
 			} else if (fbo.equals("Position")){
 				mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, fbos.get(fbo));
@@ -859,18 +837,6 @@ public class Renderer
 			
 			/* Load the ubershader. */
 			mUberShader = new ShaderProgram(gl, "shaders/ubershader");
-
-			/* Set material buffer indices once here, since they never have to change. */
-			mUberShader.bind(gl);
-			gl.glUniform1i(mUberShader.getUniformLocation(gl, "DiffuseBuffer"), 0);
-			gl.glUniform1i(mUberShader.getUniformLocation(gl, "PositionBuffer"), 1);
-			gl.glUniform1i(mUberShader.getUniformLocation(gl, "MaterialParams1Buffer"), 2);
-			gl.glUniform1i(mUberShader.getUniformLocation(gl, "MaterialParams2Buffer"), 3);
-			gl.glUniform1i(mUberShader.getUniformLocation(gl, "SilhouetteBuffer"), 4);
-			gl.glUniform1i(mUberShader.getUniformLocation(gl, "SSAOBuffer"), 5);
-			gl.glUniform1i(mUberShader.getUniformLocation(gl, "ParticleBuffer"), 6);
-			gl.glUniform3f(mUberShader.getUniformLocation(gl, "SkyColor"), 0.3f, 0.3f, 0.3f);
-			mUberShader.unbind(gl);			
 			
 			/* Get locations of the lighting uniforms, since these will have to be updated every frame. */
 			mLightPositionsUniformLocation = mUberShader.getUniformLocation(gl, "LightPositions");
@@ -896,12 +862,27 @@ public class Renderer
 			mShadowLightColorsLocation = mUberShader.getUniformLocation(gl, "ShadowLightColors");
 			mLightMatrixLocation = mUberShader.getUniformLocation(gl, "LightMatrix");
 			mInverseViewMatrixLocation = mUberShader.getUniformLocation(gl, "InverseViewMatrix"); 
+
+			/* Set material buffer indices once here, since they never have to change. */
+			mUberShader.bind(gl);
+			gl.glUniform1i(mUberShader.getUniformLocation(gl, "DiffuseBuffer"), 0);
+			gl.glUniform1i(mUberShader.getUniformLocation(gl, "PositionBuffer"), 1);
+			gl.glUniform1i(mUberShader.getUniformLocation(gl, "MaterialParams1Buffer"), 2);
+			gl.glUniform1i(mUberShader.getUniformLocation(gl, "MaterialParams2Buffer"), 3);
+			gl.glUniform1i(mUberShader.getUniformLocation(gl, "SilhouetteBuffer"), 4);
+			gl.glUniform1i(mUberShader.getUniformLocation(gl, "SSAOBuffer"), 5);
+			gl.glUniform1i(mUberShader.getUniformLocation(gl, "ParticleBuffer"), 6);
+			gl.glUniform3f(mUberShader.getUniformLocation(gl, "SkyColor"), 0.3f, 0.3f, 0.3f);
 			
+			int startTexNumber = 7;
 			mShadowMapPositionLocation = new int[mMaxShadowsInUberShader];
 			for (int i = 0; i < mMaxShadowsInUberShader; i++) {
 				String uniformName = String.format("ShadowMaps[%d]", i);
-				mShadowMapPositionLocation[i] =  mUberShader.getUniformLocation(gl, uniformName);
+				gl.glUniform1i(mUberShader.getUniformLocation(gl, uniformName), i+startTexNumber);
+				mShadowMapPositionLocation[i] =  i+startTexNumber;
 			}
+			
+			mUberShader.unbind(gl);			
 			
 			
 			/* Load the visualization shader. */
