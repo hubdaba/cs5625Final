@@ -33,6 +33,7 @@ import cs5625.deferred.scenegraph.Geometry;
 import cs5625.deferred.scenegraph.PointLight;
 import cs5625.deferred.scenegraph.SceneObject;
 import cs5625.deferred.scenegraph.TerrainRenderer;
+import cs5625.deferred.sound.SoundHandler;
 
 /**
  * DefaultSceneController.java
@@ -73,6 +74,7 @@ public class ExploreSceneController extends SceneController
 
 	private TerrainRenderer terrainRenderer;
 	private ExplosionHandler explosionHandler;
+	private SoundHandler soundHandler;
 
 	private int millisec = 40;
 
@@ -83,7 +85,10 @@ public class ExploreSceneController extends SceneController
 	@Override
 	public void initializeScene()
 	{
+		soundHandler = new SoundHandler();
+		mCamera.setFar(100);
 		explosionHandler = new ExplosionHandler();
+		explosionHandler.addObserver(soundHandler);
 		QuadSampler quad1 = new QuadSampler(new Point3f(0, 0, 0), TerrainRenderer.BLOCK_SIZE);
 		QuadSampler quad2 = new QuadSampler(new Point3f(0, -TerrainRenderer.BLOCK_SIZE, 0), TerrainRenderer.BLOCK_SIZE);
 		List<QuadSampler> blocksToRender = new LinkedList<QuadSampler>();
@@ -237,21 +242,9 @@ public class ExploreSceneController extends SceneController
 			forwardVector.normalize();
 			Point3f newSplosion = findWall(mCamera.getWorldspacePosition(), forwardVector);
 			if (newSplosion != null)  {
+				System.out.println(newSplosion);
 				explosionHandler.addExplosion(new Explosion(newSplosion, EXPLOSION_RADIUS));
-				try {
-					List<Geometry> cubes = Geometry.load("models/cube.obj", true, true);
-					SceneObject cubeObject = new SceneObject();
-					cubeObject.setPosition(new Point3f(newSplosion));
-					cubeObject.addGeometry(cubes);
-					//cubeObject.setScale(100f);
-					mSceneRoot.addChild(cubeObject);
-				} catch (ScenegraphException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+				
 			}
 		}
 	}
@@ -325,7 +318,6 @@ public class ExploreSceneController extends SceneController
 				distTraveled += gStepSize;
 				check.add(dr);
 				val = terrainRenderer.evaluate(check);
-				//	System.out.println(val);
 				if (distTraveled > gMaxDistance) {
 					return null;
 				}
@@ -335,7 +327,6 @@ public class ExploreSceneController extends SceneController
 			e.printStackTrace();
 		}
 
-		//	System.out.println("HIT with "+val);
 		return check;
 	}
 

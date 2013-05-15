@@ -91,5 +91,5 @@ void main() {
 		val += .25 * inoise((1.0 / n) * worldCoord) * (n);
 	}
 	
-	gl_FragColor.rgb = vec3(val);
+	gl_FragColor.rgb = vec3(val, explosion_offset, val);
 }

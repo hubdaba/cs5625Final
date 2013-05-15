@@ -7,10 +7,6 @@ const int TERRAIN_MATERIAL_ID = 4;
 uniform sampler2D GrassTexture;
 uniform sampler2D MossTexture;
 uniform sampler2D RockTexture;
-uniform int NumExplosions;
-uniform vec3 ExplosionPositions[5];
-
-uniform float ExplosionRadius;
 uniform sampler2D AshTexture;
 
 /* Material properties passed from the application. */
@@ -22,6 +18,8 @@ varying vec3 EyespaceNormal;
 
 varying vec3 WorldspacePosition;
 varying vec3 WorldspaceNormal;
+
+varying float Explosion;
 
 float tex_scale = 1.0/4.0;
 
@@ -93,13 +91,8 @@ void main()
 	} else {
 		diffuse_color = mossColor;
 	}
-	for (int i = 0; i < NumExplosions; i++) {
-		vec3 explosionPosition = ExplosionPositions[i];
-		float distanceToExplosion = distance(explosionPosition, WorldspacePosition);
-		if (distanceToExplosion - 1.0 < ExplosionRadius) {
-			diffuse_color = vec3(1.0, 0.0, 0.0);
-			break;
-		}
+	if (Explosion > 0.0) {
+		diffuse_color = vec3(0.0, 0.0, 0.0);
 	}
   	gl_FragData[0] = vec4(diffuse_color, enc.x);
     gl_FragData[1] = vec4(EyespacePosition, enc.y);

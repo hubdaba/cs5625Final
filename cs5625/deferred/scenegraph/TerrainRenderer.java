@@ -39,7 +39,9 @@ public class TerrainRenderer extends SceneObject implements Observer {
 	private Material terrainMaterial;
 	private boolean isTest;
 	public static float BLOCK_SIZE = 32;
-	public static int NUM_VOXELS = 20;
+	public static int NUM_VOXELS = 15;
+	public static int LOW_NUM_VOXELS = 5;
+	public static float CLOSE_DISTANCE = 100;
 
 	private Set<QuadSampler> nonemptyBlocks;
 	private BlockingQueue<QuadSampler> explodedBlocks;
@@ -193,7 +195,6 @@ public class TerrainRenderer extends SceneObject implements Observer {
 
 	public float evaluate(Point3f point) throws OpenGLException {
 		Point3f blockMin = new Point3f();
-		System.out.println(point);
 		blockMin.x = (float) (Math.floor(point.x / BLOCK_SIZE) * BLOCK_SIZE);
 		blockMin.y = (float) (Math.floor(point.y / BLOCK_SIZE) * BLOCK_SIZE);
 		blockMin.z = (float) (Math.floor(point.z / BLOCK_SIZE) * BLOCK_SIZE);
@@ -203,7 +204,6 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		if (blocks.containsKey(blockMin)) {
 			TerrainBlockRenderer block = blocks.get(blockMin);
 			float sampled = block.getTexture3D().sample3D(difference);
-			System.out.println(sampled);
 			return sampled;
 		}
 		return 10000;
