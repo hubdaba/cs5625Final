@@ -17,10 +17,12 @@ import javax.vecmath.Matrix4f;
 import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
+import javax.vecmath.Vector3f;
 
 import com.jogamp.common.nio.Buffers;
 
-import cs5625.deferred.apps.lighting.ShadowCamera;
+import cs5625.deferred.lighting.ShadowCamera;
+import cs5625.deferred.lighting.FlashLight;
 import cs5625.deferred.materials.Material;
 import cs5625.deferred.materials.Texture.Datatype;
 import cs5625.deferred.materials.Texture.Format;
@@ -118,14 +120,14 @@ public class Renderer
 	// Shadow camera data 
 	List<ShadowCamera> mShadowCameras = new ArrayList<ShadowCamera>();
 	HashMap<ShadowCamera, FramebufferObject> mShadowCameraFBOs = new HashMap<ShadowCamera, FramebufferObject>();
-	private int mShadowMode = 0;
+	private int mShadowMode = 3;
 
 	
-	private int mNumShadowMapsLocation=-1, 				mShadowModeLocation=-1, 		mShadowMapsLocation=-1, 
+	private int mNumShadowMapsLocation=-1, 				mShadowModeLocation=-1,// 		mShadowMapsLocation=-1, 
 				mShadowCamPositionLocation=-1, 			mBiasLocation=-1,				mShadowSampleWidthLocation=-1, 
 				mShadowMapWidthLocation=-1, 			mShadowMapHeightLocation=-1, 	mLightWidthLocation=-1, 
 				mShadowLightAttenuationsLocation=-1, 	mShadowLightColorsLocation=-1,	mLightMatrixLocation=-1, 
-				mInverseViewMatrixLocation=-1;
+				mInverseViewMatrixLocation=-1, 			mShadowLightDirectionLocation=-1,mFlashlightCoefficientLocation=-1;
 	private int[] mShadowMapPositionLocation;
 	private int mMaxShadowsInUberShader;
 	
@@ -425,6 +427,13 @@ public class Renderer
 			gl.glUniform1f(mShadowMapHeightLocation+j, sc.getShadowMapHeight());
 			gl.glUniform1f(mShadowSampleWidthLocation+j, sc.getShadowSampleWidth());
 			gl.glUniform1f(mLightWidthLocation+j, sc.getLightWidth());
+			
+			if (sc instanceof FlashLight) {
+				gl.glUniform1f(mFlashlightCoefficientLocation+j, ((FlashLight)sc).getFlashlightCoefficient());
+				Vector3f toTarget = ((FlashLight)sc).getAimDirection();
+				camera.transformVectorFromWorldSpace(toTarget);
+				gl.glUniform3f(mShadowLightDirectionLocation+j, toTarget.x, toTarget.y, toTarget.z);
+			}
 			
 			Light light = sc.getShadowLight();
 			// Assuming the light is in the same place as the camera...
@@ -814,6 +823,12 @@ public class Renderer
 		this.mShadowCameras.add(sc);
 	}
 	
+	public int getShadowMode() {
+		return mShadowMode;
+	}
+	public void incrementShadowMode() {
+		mShadowMode = (mShadowMode+1)%3;
+	}
 	/**
 
 	/**
@@ -850,7 +865,6 @@ public class Renderer
 			mNumShadowMapsLocation = mUberShader.getUniformLocation(gl, "NumShadowMaps");
 			mShadowModeLocation = mUberShader.getUniformLocation(gl, "ShadowMode");
 			
-			mShadowMapsLocation = mUberShader.getUniformLocation(gl, "ShadowMaps");
 			mShadowCamPositionLocation = mUberShader.getUniformLocation(gl, "ShadowCamPosition"); 
 			mBiasLocation = mUberShader.getUniformLocation(gl, "bias");
 			mShadowSampleWidthLocation = mUberShader.getUniformLocation(gl, "ShadowSampleWidth"); 
@@ -861,6 +875,8 @@ public class Renderer
 			mShadowLightColorsLocation = mUberShader.getUniformLocation(gl, "ShadowLightColors");
 			mLightMatrixLocation = mUberShader.getUniformLocation(gl, "LightMatrix");
 			mInverseViewMatrixLocation = mUberShader.getUniformLocation(gl, "InverseViewMatrix"); 
+			mShadowLightDirectionLocation = mUberShader.getUniformLocation(gl, "ShadowLightDirection");
+			mFlashlightCoefficientLocation = mUberShader.getUniformLocation(gl, "FlashlightCoefficient");
 
 			/* Set material buffer indices once here, since they never have to change. */
 			mUberShader.bind(gl);

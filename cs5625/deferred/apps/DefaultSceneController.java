@@ -9,7 +9,7 @@ import javax.vecmath.Color3f;
 import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
 
-import cs5625.deferred.apps.lighting.StageLight;
+import cs5625.deferred.lighting.StageLight;
 import cs5625.deferred.materials.LambertianMaterial;
 import cs5625.deferred.misc.Util;
 import cs5625.deferred.scenegraph.Geometry;

@@ -9,7 +9,7 @@ import java.util.List;
 import javax.vecmath.Matrix4f;
 import javax.vecmath.Point3f;
 
-import cs5625.deferred.apps.lighting.ShadowCamera;
+import cs5625.deferred.lighting.ShadowCamera;
 import cs5625.deferred.misc.Observer;
 import cs5625.deferred.misc.Observerable;
 import cs5625.deferred.scenegraph.SceneObject;

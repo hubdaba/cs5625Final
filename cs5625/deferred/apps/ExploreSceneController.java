@@ -19,12 +19,16 @@ import java.util.List;
 
 import javax.swing.Timer;
 import javax.vecmath.AxisAngle4f;
+import javax.vecmath.Color3f;
 import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
 import javax.vecmath.Vector2f;
 import javax.vecmath.Vector3f;
 
+import cs5625.deferred.lighting.FlashLight;
+import cs5625.deferred.lighting.SunLight;
+import cs5625.deferred.misc.OpenGLException;
 import cs5625.deferred.misc.Util;
 import cs5625.deferred.particles.Particle;
 import cs5625.deferred.particles.SmokeExplosion;
@@ -77,6 +81,9 @@ public class ExploreSceneController extends SceneController
 	// GAME PARAMETERS
 	private float gStepSize = 0.1f;
 	private float gMaxDistance = 250f;		// Maybe the far plane distance?  Maybe arbitrary?
+	
+	protected FlashLight flashlight;
+	protected PointLight sun;
 
 	@Override
 	public void initializeScene()
@@ -90,18 +97,39 @@ public class ExploreSceneController extends SceneController
 		terrainRenderer = new TerrainRenderer(false, explosionHandler, null);
 		try
 		{
+			mCamera.setPosition(new Point3f(0.0f, 15.0f, 0.0f));
+			
 			mSceneRoot.addChild(terrainRenderer);
 			mCamera.addObserver(terrainRenderer);
 			explosionHandler.addObserver(terrainRenderer);
 			/* Add an unattenuated point light to provide overall illumination. */
 			PointLight light = new PointLight();
+			light.setColor(new Color3f(1f, 1f, 1f));
 
 			light.setConstantAttenuation(1.0f);
-			light.setLinearAttenuation(0.0f);
+			light.setLinearAttenuation(0.1f);
 			light.setQuadraticAttenuation(0.0f);
 
-			light.setPosition(new Point3f(50.0f, 180.0f, 100.0f));
-			mSceneRoot.addChild(light);	
+			Point3f lightPosition = new Point3f(0f, -3f, 0f);
+			lightPosition.add(mCamera.getPosition());
+			light.setPosition(lightPosition);
+			//mSceneRoot.addChild(light);
+			flashlight = new FlashLight(light, mCamera);
+			flashlight.setFOV(75);
+			mRenderer.addShadowCamera(flashlight);
+			
+			
+			sun = new PointLight();
+			sun.setColor(new Color3f(.1f, .1f, .1f));
+
+			sun.setConstantAttenuation(1.0f);
+			sun.setLinearAttenuation(0.0f);
+			sun.setQuadraticAttenuation(0.0f);
+
+			lightPosition = new Point3f(100f, 180f, 100f);
+			lightPosition.add(mCamera.getPosition());
+			light.setPosition(lightPosition);
+			mSceneRoot.addChild(sun);
 			
 			/*
 			SmokeSystem smoke = new SmokeSystem();
@@ -233,9 +261,14 @@ public class ExploreSceneController extends SceneController
 			forwardVector = new Vector3f(0.0f, 0.0f, -1.0f);
 			Util.rotateTuple(mCamera.getOrientation(), forwardVector);
 			forwardVector.normalize();
-			Point3f newSplosion = findWall(mCamera.getWorldspacePosition(), forwardVector);
-			if (newSplosion != null) 
-				explosionHandler.addExplosion(new Explosion(newSplosion, EXPLOSION_RADIUS));
+			try {
+				Point3f newSplosion = findWall(mCamera.getWorldspacePosition(), forwardVector);
+				if (newSplosion != null) 
+					explosionHandler.addExplosion(new Explosion(newSplosion, EXPLOSION_RADIUS));
+			} catch (OpenGLException e) {
+				// Do nothing if it crashes- might just mean it missed all the walls.
+				// It's not really important, but we definitely don't want to disturb the user
+			} 
 		}
 	}
 	
@@ -245,6 +278,45 @@ public class ExploreSceneController extends SceneController
 		if (c == ' ') {
 			explosionHandler.addExplosion(
 						new Explosion(mCamera.getPosition(), EXPLOSION_RADIUS));
+		} else if (c == 'd') {
+			flashlight.setBias(flashlight.getBias() - 0.000001f);
+			System.out.println("Flashlight Bias: " + flashlight.getBias());
+			requiresRender();
+		}
+		else if (c == 'D') {
+			flashlight.setBias(flashlight.getBias() + 0.000001f);
+			System.out.println("Flashlight Bias: " + flashlight.getBias());
+		}
+		else if (c == 'a') {
+			mRenderer.incrementShadowMode();
+			int mode = mRenderer.getShadowMode();
+			String modeString = (mode == 0 ? "DEFAULT SHADOWMAP" : (mode == 1 ? "PCF SHADOWMAP" : "PCSS SHADOWMAP"));
+			System.out.println("Shadow Map mode: " + modeString);
+			requiresRender();
+		}
+		else if (c == 'f') {
+			if (mRenderer.getShadowMode() == 1) {
+				flashlight.setShadowSampleWidth(flashlight.getShadowSampleWidth()-1);
+				System.out.println("Flashlight Sample Width: " + flashlight.getShadowSampleWidth());
+				requiresRender();
+			}
+			if (mRenderer.getShadowMode() == 2) {
+				flashlight.setLightWidth(flashlight.getLightWidth() - 1);
+				System.out.println("Flashlight Light Width: " + flashlight.getLightWidth());
+				requiresRender();
+			}
+		}
+		else if (c == 'F') {
+			if (mRenderer.getShadowMode() == 1) {
+				flashlight.setShadowSampleWidth(flashlight.getShadowSampleWidth()+1);
+				System.out.println("Flashlight Sample Width: " + flashlight.getShadowSampleWidth());
+				requiresRender();
+			}
+			if (mRenderer.getShadowMode() == 2) {
+				flashlight.setLightWidth(flashlight.getLightWidth() + 1);
+				System.out.println("Flashlight Light Width: " + flashlight.getLightWidth());
+				requiresRender();
+			}
 		}
 	}
 	
@@ -280,17 +352,17 @@ public class ExploreSceneController extends SceneController
 		}
 	}
 	
-	public Point3f findWall(Point3f start, Vector3f dir) {
+	public Point3f findWall(Point3f start, Vector3f dir) throws OpenGLException {
 		Vector3f dr = new Vector3f();
 		dr.normalize(dir);
 		dr.scale(gStepSize);
 		Point3f check = new Point3f(start);
 		float distTraveled = 0.0f;
-		float val = QuadSampler.evaluate(check);
-		while (val > -20.0) {
+		float val = terrainRenderer.evaluate(check);
+		while (val > 0.0) {
 			distTraveled += gStepSize;
 			check.add(dr);
-			val = QuadSampler.evaluate(check);
+			val = terrainRenderer.evaluate(check);
 			System.out.println(val);
 			if (distTraveled > gMaxDistance) {
 				return null;
