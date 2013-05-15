@@ -199,4 +199,22 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		}
 	}
 
+	
+	public Point3f findWall(Point3f start, Vector3f dir, float stepSize, float farWall) throws OpenGLException {
+		Vector3f dr = new Vector3f();
+		dr.normalize(dir);
+		dr.scale(stepSize);
+		Point3f check = new Point3f(start);
+		float distTraveled = 0.0f;
+		float val = evaluate(check);
+		while (val > 0.0) {
+			distTraveled += stepSize;
+			check.add(dr);
+			val = evaluate(check);
+			if (distTraveled > farWall) {
+				return null;
+			}
+		}
+		return check;
+	}
 }

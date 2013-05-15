@@ -262,7 +262,7 @@ public class ExploreSceneController extends SceneController
 			Util.rotateTuple(mCamera.getOrientation(), forwardVector);
 			forwardVector.normalize();
 			try {
-				Point3f newSplosion = findWall(mCamera.getWorldspacePosition(), forwardVector);
+				Point3f newSplosion = terrainRenderer.findWall(mCamera.getWorldspacePosition(), forwardVector, gStepSize, gMaxDistance);
 				if (newSplosion != null) 
 					explosionHandler.addExplosion(new Explosion(newSplosion, EXPLOSION_RADIUS));
 			} catch (OpenGLException e) {
@@ -278,23 +278,23 @@ public class ExploreSceneController extends SceneController
 		if (c == ' ') {
 			explosionHandler.addExplosion(
 						new Explosion(mCamera.getPosition(), EXPLOSION_RADIUS));
-		} else if (c == 'd') {
+		} else if (c == 'h') {
 			flashlight.setBias(flashlight.getBias() - 0.000001f);
 			System.out.println("Flashlight Bias: " + flashlight.getBias());
 			requiresRender();
 		}
-		else if (c == 'D') {
+		else if (c == 'H') {
 			flashlight.setBias(flashlight.getBias() + 0.000001f);
 			System.out.println("Flashlight Bias: " + flashlight.getBias());
 		}
-		else if (c == 'a') {
+		else if (c == 'j') {
 			mRenderer.incrementShadowMode();
 			int mode = mRenderer.getShadowMode();
 			String modeString = (mode == 0 ? "DEFAULT SHADOWMAP" : (mode == 1 ? "PCF SHADOWMAP" : "PCSS SHADOWMAP"));
 			System.out.println("Shadow Map mode: " + modeString);
 			requiresRender();
 		}
-		else if (c == 'f') {
+		else if (c == 'k') {
 			if (mRenderer.getShadowMode() == 1) {
 				flashlight.setShadowSampleWidth(flashlight.getShadowSampleWidth()-1);
 				System.out.println("Flashlight Sample Width: " + flashlight.getShadowSampleWidth());
@@ -306,7 +306,7 @@ public class ExploreSceneController extends SceneController
 				requiresRender();
 			}
 		}
-		else if (c == 'F') {
+		else if (c == 'K') {
 			if (mRenderer.getShadowMode() == 1) {
 				flashlight.setShadowSampleWidth(flashlight.getShadowSampleWidth()+1);
 				System.out.println("Flashlight Sample Width: " + flashlight.getShadowSampleWidth());
@@ -321,21 +321,25 @@ public class ExploreSceneController extends SceneController
 	}
 	
 	
-
+	
 	public void keyPressed(KeyEvent key)
 	{
 		super.keyPressed(key);	
 		switch (key.getKeyCode()) {
 		case KeyEvent.VK_UP:
+		case KeyEvent.VK_W:
 			targetVelocity.y = maxSpeed;
 			break;
 		case KeyEvent.VK_DOWN:
+		case KeyEvent.VK_S:
 			targetVelocity.y = -maxSpeed;
 			break;
 		case KeyEvent.VK_LEFT:
+		case KeyEvent.VK_A:
 			targetVelocity.x = -maxSpeed;
 			break;
 		case KeyEvent.VK_RIGHT:
+		case KeyEvent.VK_D:
 			targetVelocity.x = +maxSpeed;
 			break;
 		}
@@ -345,31 +349,11 @@ public class ExploreSceneController extends SceneController
 	{
 		super.keyReleased(key);
 		int k = key.getKeyCode();
-		if (k==KeyEvent.VK_UP || k==KeyEvent.VK_DOWN) {
+		if (k==KeyEvent.VK_UP || k==KeyEvent.VK_DOWN || k==KeyEvent.VK_W || k==KeyEvent.VK_S) {
 			targetVelocity.y = 0.0f;
-		} else if (k==KeyEvent.VK_LEFT || k==KeyEvent.VK_RIGHT) {
+		} else if (k==KeyEvent.VK_LEFT || k==KeyEvent.VK_RIGHT || k==KeyEvent.VK_A || k==KeyEvent.VK_D) {
 			targetVelocity.x = 0.0f;
 		}
-	}
-	
-	public Point3f findWall(Point3f start, Vector3f dir) throws OpenGLException {
-		Vector3f dr = new Vector3f();
-		dr.normalize(dir);
-		dr.scale(gStepSize);
-		Point3f check = new Point3f(start);
-		float distTraveled = 0.0f;
-		float val = terrainRenderer.evaluate(check);
-		while (val > 0.0) {
-			distTraveled += gStepSize;
-			check.add(dr);
-			val = terrainRenderer.evaluate(check);
-			System.out.println(val);
-			if (distTraveled > gMaxDistance) {
-				return null;
-			}
-		}
-		System.out.println("HIT with "+val);
-		return check;
 	}
 
 }
