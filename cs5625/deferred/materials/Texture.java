@@ -274,11 +274,11 @@ public abstract class Texture implements OpenGLResourceObject
 		
 		/* Bind. */
 		int target = getTextureTarget();
-		
+
 		gl.glBindTexture(target, mHandle);
 		gl.glEnable(target);
 		mBoundUnit = textureUnit;
-				
+
 		/* Restore the previously active texture unit. */
 		gl.glActiveTexture(previousActive[0]);
 		

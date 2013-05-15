@@ -70,6 +70,12 @@ uniform float FlashlightCoefficient[MAX_SHADOW_MAPS];
 uniform mat4 LightMatrix[MAX_SHADOW_MAPS];
 uniform mat4 InverseViewMatrix[MAX_SHADOW_MAPS];
 
+uniform mat4 ViewMatrix;
+uniform float ScreenHeight;
+uniform float ScreenWidth;
+
+uniform sampler2D StarTexture;
+
 
 /* Decodes a vec2 into a normalized vector See Renderer.java for more info. */
 vec3 decode(vec2 v)
@@ -290,8 +296,29 @@ void main()
 
 	if (materialID == 0)
 	{
+	vec3 skyColor = vec3(0.0);
+		vec2 screen = gl_FragCoord.xy;
+		screen.x = (((screen.x - 0.5)/ ScreenWidth) - 0.5) * 2.0;
+		screen.y = (((screen.y - 0.5) / ScreenHeight) - 0.5) * 2.0;
+		vec4 viewDirection = vec4(screen.x, screen.y, -1.0, 1.0);
+		viewDirection = ViewMatrix * viewDirection; 
+		vec3 skyDirection = normalize(viewDirection.xyz);
+		if (abs(skyDirection.z) > abs(skyDirection.x) && abs(skyDirection.z) > abs(skyDirection.y)) {
+			vec2 coord = skyDirection.xy;
+			normalize(coord);
+			skyColor = texture2D(StarTexture, coord).xyz;
+		} else if (abs(skyDirection.y) > abs(skyDirection.x) && abs(skyDirection.y) > abs(skyDirection.z)) {
+			vec2 coord = skyDirection.xz;
+			normalize(coord);
+			skyColor = texture2D(StarTexture, coord).xyz;
+		} else if (abs(skyDirection.x) > abs(skyDirection.y) && abs(skyDirection.x) > abs(skyDirection.z)) {
+			vec2 coord = skyDirection.yz;
+			normalize(coord);
+			skyColor = texture2D(StarTexture, coord).xyz;
+		}
+		
 		/* Must be a fragment with no geometry, so set to sky (background) color. */
-		gl_FragColor = vec4(SkyColor, 1.0);
+		gl_FragColor = vec4(skyColor, 1.0);
 	}
 	else if (materialID == UNSHADED_MATERIAL_ID)
 	{
