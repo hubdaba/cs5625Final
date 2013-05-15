@@ -2,9 +2,16 @@
  * this pixel is. */
 const int TERRAIN_MATERIAL_ID = 4;
 
+
+
 uniform sampler2D GrassTexture;
 uniform sampler2D MossTexture;
 uniform sampler2D RockTexture;
+uniform int NumExplosions;
+uniform vec3 ExplosionPositions[5];
+
+uniform float ExplosionRadius;
+uniform sampler2D AshTexture;
 
 /* Material properties passed from the application. */
 uniform vec3 DiffuseColor;
@@ -85,6 +92,14 @@ void main()
 		diffuse_color = mix(mossColor, rockColor, blendAmount);
 	} else {
 		diffuse_color = mossColor;
+	}
+	for (int i = 0; i < NumExplosions; i++) {
+		vec3 explosionPosition = ExplosionPositions[i];
+		float distanceToExplosion = distance(explosionPosition, WorldspacePosition);
+		if (distanceToExplosion - 1.0 < ExplosionRadius) {
+			diffuse_color = vec3(1.0, 0.0, 0.0);
+			break;
+		}
 	}
   	gl_FragData[0] = vec4(diffuse_color, enc.x);
     gl_FragData[1] = vec4(EyespacePosition, enc.y);

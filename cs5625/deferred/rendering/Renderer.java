@@ -709,7 +709,6 @@ public class Renderer
 		HashMap<String, Integer> fbos = mesh.getMaterial().getRequiredFBOs();
 		for (String fbo : fbos.keySet()) {
 			if (fbo.equals("Diffuse")) {
-				System.out.println("Diffuse Buffer at "+fbos.get(fbo));
 				mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).bind(gl, fbos.get(fbo));
 			} else if (fbo.equals("Position")){
 				mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, fbos.get(fbo));

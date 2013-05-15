@@ -25,8 +25,6 @@ import javax.vecmath.Quat4f;
 import javax.vecmath.Vector2f;
 import javax.vecmath.Vector3f;
 
-import cs5625.deferred.apps.lighting.ShadowCamera;
-import cs5625.deferred.apps.lighting.StageLight;
 import cs5625.deferred.misc.Util;
 import cs5625.deferred.particles.Particle;
 import cs5625.deferred.particles.SmokeExplosion;
@@ -102,12 +100,8 @@ public class ExploreSceneController extends SceneController
 			light.setLinearAttenuation(0.0f);
 			light.setQuadraticAttenuation(0.0f);
 
-			light.setPosition(new Point3f(20.0f, 20.0f, 20.0f));
-			//mSceneRoot.addChild(light);	
-			
-			StageLight sl = new StageLight(light, mCamera);
-			mSceneRoot.addChild(sl);
-			mRenderer.addShadowCamera(sl);
+			light.setPosition(new Point3f(50.0f, 180.0f, 100.0f));
+			mSceneRoot.addChild(light);	
 			
 			/*
 			SmokeSystem smoke = new SmokeSystem();
@@ -135,9 +129,6 @@ public class ExploreSceneController extends SceneController
 			//smoke.origin.set(12f, 12f, 12f);
 			SmokeExplosion smoke = new SmokeExplosion(explosionHandler);
 			mSceneRoot.addChild(smoke);
-			//SmokeSource smoke2 = new SmokeSource();
-			//smoke2.origin.set(12f,12f,12f);
-			//mSceneRoot.addChild(smoke2);
 		}
 		catch (Exception err)
 		{
@@ -300,10 +291,12 @@ public class ExploreSceneController extends SceneController
 			distTraveled += gStepSize;
 			check.add(dr);
 			val = QuadSampler.evaluate(check);
+			System.out.println(val);
 			if (distTraveled > gMaxDistance) {
 				return null;
 			}
 		}
+		System.out.println("HIT with "+val);
 		return check;
 	}
 

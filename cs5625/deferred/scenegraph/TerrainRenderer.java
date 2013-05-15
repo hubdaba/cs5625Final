@@ -39,14 +39,14 @@ public class TerrainRenderer extends SceneObject implements Observer {
 	private Material terrainMaterial;
 	private boolean isTest;
 	public static float BLOCK_SIZE = 32;
+	public static int NUM_VOXELS = 20;
 
 	private Set<QuadSampler> nonemptyBlocks;
 	private BlockingQueue<QuadSampler> explodedBlocks;
 	private List<QuadSampler> blocksToRender;
 
 	private SuperBlock renderArea;
-	private Point3f cameraPos;
-
+	
 	private ExplosionHandler explosionHandler;
 
 	public TerrainRenderer(boolean isTest, ExplosionHandler explosionHandler,
@@ -80,8 +80,7 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		Point3f cameraPosition = new Point3f(camera.getPosition());
 		Util.round(cameraPosition, 1);
 		renderArea = SuperBlock.midpointDistanceBlock(cameraPosition, camera.getFar() + 1);
-		cameraPos = cameraPosition;
-
+	
 		Set<QuadSampler> lastExplodedBlocks = new HashSet<QuadSampler>();
 		explodedBlocks.drainTo(lastExplodedBlocks);
 		List<QuadSampler> nonVisibleBlocks = new LinkedList<QuadSampler>();	
@@ -127,9 +126,9 @@ public class TerrainRenderer extends SceneObject implements Observer {
 					if (nonemptyBlocks.contains(quad)) {
 						continue;
 					}
-					if (quad.hasPolygons()) {
+					
 						nonemptyBlocks.add(quad);
-					}
+				
 				}
 			}
 		}
@@ -146,7 +145,7 @@ public class TerrainRenderer extends SceneObject implements Observer {
 			if (camera.inFrustum(nonemptyBlock)) {
 				if (!blocks.containsKey(lowerCorner)) {
 					TerrainBlockRenderer renderer = new TerrainBlockRenderer(gl, nonemptyBlock.getMinPoint(),
-							20, nonemptyBlock.getSideLength(), 
+							NUM_VOXELS, nonemptyBlock.getSideLength(), 
 							explosionHandler.getExplosions(nonemptyBlock)); 
 					blocks.put(lowerCorner, renderer);
 					renderer.fillTexture3D(gl);
@@ -164,10 +163,9 @@ public class TerrainRenderer extends SceneObject implements Observer {
 	}
 
 	public void renderTerrain(GL2 gl) throws OpenGLException {
-		//System.out.println(blocks.size());
 		for (TerrainBlockRenderer block : blocks.values()) {
-			//System.out.println(block.getMinPoint());
 			if (!isTest) {
+				((TerrainMaterial) terrainMaterial).setExplosionPositions(block.getExplosionPositions());
 				((TerrainMaterial) terrainMaterial).setDensityFunction(block.getTexture3D());
 				((TerrainMaterial) terrainMaterial).setLowerCorner(block.getMinPoint());
 				((TerrainMaterial) terrainMaterial).setNumVoxels(block.getNumVoxels());
@@ -193,6 +191,23 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		this.update(o, null);
 	}
 
+	public float evaluate(Point3f point) throws OpenGLException {
+		Point3f blockMin = new Point3f();
+		System.out.println(point);
+		blockMin.x = (float) (Math.floor(point.x / BLOCK_SIZE) * BLOCK_SIZE);
+		blockMin.y = (float) (Math.floor(point.y / BLOCK_SIZE) * BLOCK_SIZE);
+		blockMin.z = (float) (Math.floor(point.z / BLOCK_SIZE) * BLOCK_SIZE);
+		Point3f difference = new Point3f(point);
+		difference.sub(blockMin);
+		difference.scale((float) (1.0/BLOCK_SIZE));
+		if (blocks.containsKey(blockMin)) {
+			TerrainBlockRenderer block = blocks.get(blockMin);
+			float sampled = block.getTexture3D().sample3D(difference);
+			System.out.println(sampled);
+			return sampled;
+		}
+		return 10000;
+	}
 
 
 	@Override
