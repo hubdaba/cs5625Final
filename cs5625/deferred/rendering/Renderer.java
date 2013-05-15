@@ -514,7 +514,6 @@ public class Renderer
 		gl.glTranslatef(position.x, position.y, position.z);
 		gl.glRotatef(orientation.angle * 180.0f / (float)Math.PI, orientation.x, orientation.y, orientation.z);;
 		if (obj instanceof TerrainRenderer && mRenderingOpaque) {
-			((TerrainRenderer) obj).setupPosition(gl, camera);
 			((TerrainRenderer) obj).renderPolygons(gl, camera);
 			((TerrainRenderer) obj).getMaterial().retrieveShader(gl, mShaderCache);
 			((TerrainRenderer) obj).renderTerrain(gl);
@@ -718,6 +717,7 @@ public class Renderer
 		HashMap<String, Integer> fbos = mesh.getMaterial().getRequiredFBOs();
 		for (String fbo : fbos.keySet()) {
 			if (fbo.equals("Diffuse")) {
+				System.out.println(fbos.get(fbo));
 				mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).bind(gl, fbos.get(fbo));
 			} else if (fbo.equals("Position")){
 				mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, fbos.get(fbo));

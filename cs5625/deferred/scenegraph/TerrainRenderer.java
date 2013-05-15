@@ -41,11 +41,9 @@ public class TerrainRenderer extends SceneObject implements Observer {
 	public static float BLOCK_SIZE = 32;
 	public static int NUM_VOXELS = 20;
 
-	private Set<QuadSampler> nonemptyBlocks;
 	private BlockingQueue<QuadSampler> explodedBlocks;
 	private List<QuadSampler> blocksToRender;
 
-	private SuperBlock renderArea;
 	
 	private ExplosionHandler explosionHandler;
 
@@ -53,7 +51,6 @@ public class TerrainRenderer extends SceneObject implements Observer {
 			List<QuadSampler> blocksToRender) {
 		blocks = new HashMap<Point3f, TerrainBlockRenderer>();
 		this.explosionHandler = explosionHandler;
-		nonemptyBlocks = new HashSet<QuadSampler>();
 		explodedBlocks = new LinkedBlockingQueue<QuadSampler>();
 		this.blocksToRender = blocksToRender;
 
@@ -65,55 +62,49 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		}
 	}
 
-	// set up blocks according to view frustum
-	public void setupPosition(GL2 gl, Camera camera) throws OpenGLException, IOException {
-
+	
+	public void renderPolygons(GL2 gl, Camera camera) throws OpenGLException, IOException {
 		if (!needSetup) {
 			return;
-		} 
-		
-		if (blocksToRender != null) {
-			this.nonemptyBlocks.clear();
-			this.nonemptyBlocks.addAll(blocksToRender);
 		}
 		
-		Point3f cameraPosition = new Point3f(camera.getPosition());
-		Util.round(cameraPosition, 1);
-		renderArea = SuperBlock.midpointDistanceBlock(cameraPosition, camera.getFar() + 1);
-	
+		SuperBlock renderArea = SuperBlock.midpointDistanceBlock(camera.getPosition(), camera.getFar() + 1);
+		
 		Set<QuadSampler> lastExplodedBlocks = new HashSet<QuadSampler>();
 		explodedBlocks.drainTo(lastExplodedBlocks);
-		List<QuadSampler> nonVisibleBlocks = new LinkedList<QuadSampler>();	
-		List<QuadSampler> explodedBlocks = new LinkedList<QuadSampler>();
-		for (QuadSampler nonemptyBlock : nonemptyBlocks) {
-			if (!renderArea.containsBlock(nonemptyBlock)) {
-				nonVisibleBlocks.add(nonemptyBlock);
-			} else if (lastExplodedBlocks.contains(nonemptyBlock)) {
-				explodedBlocks.add(nonemptyBlock);
+		List<SuperBlock> farBlocks = new LinkedList<SuperBlock>();
+		for (SuperBlock block : blocks.values()) {
+			if (!renderArea.containsBlock(block)) {
+				farBlocks.add(block);
 			}
 		}
-
-		for (QuadSampler nonVisibleBlock : nonVisibleBlocks) {
-			nonemptyBlocks.remove(nonVisibleBlock);
-			TerrainBlockRenderer block = blocks.get(nonVisibleBlock.getMinPoint());
-			if (block != null) {
-				block.releaseGPUResources(gl);
+		for (SuperBlock block : farBlocks){
+			if (blocks.containsKey(block.getMinPoint())) {
+				((TerrainBlockRenderer)block).releaseGPUResources(gl);
+				blocks.remove(block.getMinPoint());
 			}
-			blocks.remove(nonVisibleBlock.getMinPoint());
 		}
-		for (QuadSampler explodedBlock : explodedBlocks) {
+		for (QuadSampler explodedBlock : lastExplodedBlocks) {
 			TerrainBlockRenderer block = blocks.get(explodedBlock.getMinPoint());
 			if (block != null) {
 				block.releaseGPUResources(gl);
 				blocks.remove(explodedBlock.getMinPoint());
 			}
-			
 		}
-
+		
 		if (blocksToRender != null) {
-			return;
+			for (QuadSampler quad : blocksToRender) {
+				if (!blocks.containsKey(quad.getMinPoint())) {
+					TerrainBlockRenderer renderer = new TerrainBlockRenderer(gl, quad.getMinPoint(),
+							NUM_VOXELS, quad.getSideLength(), explosionHandler.getExplosions(quad));;
+					blocks.put(quad.getMinPoint(), renderer);
+					if (!isTest) {
+						renderer.renderPolygons(gl);
+						OpenGLException.checkOpenGLError(gl);
+					}
+				}
+			}
 		}
-
 		Tuple3f minPoint = renderArea.getMinPoint();
 		minPoint.x = (float) (Math.floor(minPoint.x/BLOCK_SIZE) * BLOCK_SIZE);
 		minPoint.y = (float) (Math.floor(minPoint.y/BLOCK_SIZE) * BLOCK_SIZE);
@@ -122,41 +113,24 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		for (float x = minPoint.x; x < diameter + minPoint.x; x+=BLOCK_SIZE) {
 			for (float y = minPoint.y; y < diameter + minPoint.y; y+=BLOCK_SIZE) {
 				for (float z = minPoint.z; z < diameter + minPoint.z; z += BLOCK_SIZE) {
-					QuadSampler quad = new QuadSampler(new Vector3f(x, y, z), BLOCK_SIZE);
-					if (nonemptyBlocks.contains(quad)) {
-						continue;
+					Point3f lowerCorner = new Point3f(x, y, z);
+					if (camera.inFrustum(new QuadSampler(lowerCorner, BLOCK_SIZE))) {
+						if (!blocks.containsKey(lowerCorner)) {
+							TerrainBlockRenderer renderer = new TerrainBlockRenderer(gl, lowerCorner,
+									NUM_VOXELS, BLOCK_SIZE,
+									explosionHandler.getExplosions(new QuadSampler(lowerCorner, BLOCK_SIZE)));
+							blocks.put(lowerCorner, renderer);
+							renderer.fillTexture3D(gl);
+							OpenGLException.checkOpenGLError(gl);
+							if (!isTest) {
+								renderer.renderPolygons(gl);
+								OpenGLException.checkOpenGLError(gl);
+							}
+						}
 					}
-					
-						nonemptyBlocks.add(quad);
 				
 				}
 			}
-		}
-
-	}
-
-	public void renderPolygons(GL2 gl, Camera camera) throws OpenGLException, IOException {
-		if (!needSetup) {
-			return;
-		}
-		for (QuadSampler nonemptyBlock : nonemptyBlocks) {
-			Point3f lowerCorner = nonemptyBlock.getMinPoint();
-
-			if (camera.inFrustum(nonemptyBlock)) {
-				if (!blocks.containsKey(lowerCorner)) {
-					TerrainBlockRenderer renderer = new TerrainBlockRenderer(gl, nonemptyBlock.getMinPoint(),
-							NUM_VOXELS, nonemptyBlock.getSideLength(), 
-							explosionHandler.getExplosions(nonemptyBlock)); 
-					blocks.put(lowerCorner, renderer);
-					renderer.fillTexture3D(gl);
-					OpenGLException.checkOpenGLError(gl);
-					if (!isTest) {
-						renderer.renderPolygons(gl);
-						OpenGLException.checkOpenGLError(gl);
-					}
-				} 
-			}
-			
 		}
 
 		needSetup = false;

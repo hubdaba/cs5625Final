@@ -50,7 +50,7 @@ public class TerrainBlockRenderer extends SuperBlock {
 
 	private VertexBuffer buffer;
 
-	public static int NUM_EXPLOSIONS = 5; 
+	public static int NUM_EXPLOSIONS = 50; 
 	
 	private int num_polygons = -1;
 	private boolean density_filled;
