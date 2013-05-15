@@ -65,6 +65,7 @@ uniform vec3 ShadowLightAttenuations[MAX_SHADOW_MAPS];
 uniform vec3 ShadowLightColors[MAX_SHADOW_MAPS];
 uniform vec3 ShadowLightDirection[MAX_SHADOW_MAPS];
 uniform float FlashlightCoefficient[MAX_SHADOW_MAPS];
+uniform float FlashlightRadius[MAX_SHADOW_MAPS];
 
 /* Pass the shadow camera Projection * View matrix to help transform points, as well the Camera inverse-view Matrix */
 uniform mat4 LightMatrix[MAX_SHADOW_MAPS];
@@ -193,7 +194,10 @@ float getShadowStrength(vec3 position, int shadowSource) {
 	// the shadowmap view vector, and exponentiate by the flashlight coefficient
 	vec3 toFrag = normalize(position - ShadowCamPosition[shadowSource]);
 	float angle = acos(dot(toFrag, ShadowLightDirection[shadowSource]));
-	float flashlightDamp = max(1.0-pow(angle*2.2, 8.0), 0.0); 
+	float flashlightDamp = 1.0;
+	if (FlashlightCoefficient[shadowSource] != 0.0) {
+		flashlightDamp = max(1.0-pow(angle/FlashlightRadius[shadowSource], FlashlightCoefficient[shadowSource]), 0.0); 
+	}
 	
 	vec4 unshiftedShadowCoord = LightMatrix[shadowSource] * InverseViewMatrix[shadowSource] * vec4(position, 1.0);
 	
@@ -296,11 +300,11 @@ void main()
 
 	if (materialID == 0)
 	{
-	vec3 skyColor = vec3(0.0);
+		vec3 skyColor = vec3(0.0);
 		vec2 screen = gl_FragCoord.xy;
-		screen.x = (((screen.x - 0.5)/ ScreenWidth) - 0.5) * 2.0;
-		screen.y = (((screen.y - 0.5) / ScreenHeight) - 0.5) * 2.0;
-		vec4 viewDirection = vec4(screen.x, screen.y, -1.0, 1.0);
+		screen.x = screen.x/ScreenWidth;//(((screen.x - 0.5)/ ScreenWidth) - 0.5) * 2.0;
+		screen.y = screen.y/ScreenHeight;//(((screen.y - 0.5) / ScreenHeight) - 0.5) * 2.0;
+		/*vec4 viewDirection = vec4(screen.x, screen.y, -1.0, 1.0);
 		viewDirection = ViewMatrix * viewDirection; 
 		vec3 skyDirection = normalize(viewDirection.xyz);
 		if (abs(skyDirection.z) > abs(skyDirection.x) && abs(skyDirection.z) > abs(skyDirection.y)) {
@@ -315,7 +319,8 @@ void main()
 			vec2 coord = skyDirection.yz;
 			normalize(coord);
 			skyColor = texture2D(StarTexture, coord).xyz;
-		}
+		}*/
+		skyColor = texture2D(StarTexture, screen).xyz/6.0;
 		
 		/* Must be a fragment with no geometry, so set to sky (background) color. */
 		gl_FragColor = vec4(skyColor, 1.0);

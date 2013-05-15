@@ -81,7 +81,6 @@ public class ShaderProgram implements OpenGLResourceObject
 		}
 		
 		if (use_transform_feedback) {
-			System.out.println("adding transform feedback params");
 			String[] transformFeedbackParams = {"gl_Position"};
 			gl.glTransformFeedbackVaryings(mHandle, 1, 
 							transformFeedbackParams, GL2.GL_SEPARATE_ATTRIBS);		

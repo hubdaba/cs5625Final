@@ -59,7 +59,7 @@ public class ExploreSceneController extends SceneController
 	
 	/* Keeps track of camera's orbit position. Latitude and longitude are in degrees. */
 	private float mCameraLongitude = 50.0f, mCameraLatitude = -40.0f;
-	private Point3f mCameraPosition = new Point3f(12f, 12f, 12f);
+	private Point3f mCameraPosition = new Point3f(0f,50f, 0f);
 	private Vector2f mCameraVelocity = new Vector2f();
 	private Vector3f rightVector = new Vector3f();
 	private Vector3f forwardVector = new Vector3f();
@@ -90,11 +90,15 @@ public class ExploreSceneController extends SceneController
 	private long prevTime;
 	
 	private Vector3f gUserVelocity = new Vector3f();
-	private Vector3f gGravity = new Vector3f(0f, -2f, 0f);
+	private Vector3f gGravity = new Vector3f(0f, -6f, 0f);
 	private Vector3f gUserFeet = new Vector3f(0f, -4f, 0f);
-	private float gRestoringForce = 400f;
-	private float gDamping = 0.99f;
-	private float vRocketSpeed = 5f;
+	private float gRestoringForce = 1000f;
+	private float gDamping = 0.98f;
+	private float gRocketSpeed = 5f;
+	private boolean gJetPack = false;
+	private float gTopSpeed = 10.0f;
+	private float gEscapeSpeed = 0.3f;
+	private float gFriction = 0.1f;
 
 	@Override
 	public void initializeScene()
@@ -111,7 +115,7 @@ public class ExploreSceneController extends SceneController
 		terrainRenderer = new TerrainRenderer(false, explosionHandler, null);
 		try
 		{
-			mCamera.setPosition(new Point3f(0.0f, 30.0f, 0.0f));
+			mCamera.setPosition(new Point3f(0.0f, 100.0f, 0.0f));
 			
 			mSceneRoot.addChild(terrainRenderer);
 			mCamera.addObserver(terrainRenderer);
@@ -277,27 +281,28 @@ public class ExploreSceneController extends SceneController
 	}
 	
 	private void advanceUser(double dt) throws OpenGLException {
-		// Get rid of the old user velocity, and throw the new one on top.
-		gUserVelocity.sub(getCameraVelocity());
+		// Make sure nothing crazy is going on with the timing...
 		targetVelocity.scale(decay);
 		mCameraVelocity.scale(tau);
 		mCameraVelocity.scaleAdd(1.0f-tau, targetVelocity, mCameraVelocity);
-		gUserVelocity.scaleAdd((float)dt, gGravity);
-		gUserVelocity.add(getCameraVelocity());
+		gUserVelocity.scaleAdd((float)dt, getCameraVelocity(), gUserVelocity);
+		gUserVelocity.scaleAdd((float)dt, gGravity, gUserVelocity);
+
+		if (gJetPack) {
+			gUserVelocity.y = gRocketSpeed;
+		}
 		
-		gUserVelocity.scaleAdd((float)dt, getRestoringForce(mCameraPosition), gUserVelocity);
-		gUserVelocity.scaleAdd((float)dt, getRestoringForce(flashlight.getPosition()), gUserVelocity);
+		gUserVelocity.scaleAdd((float)dt, getRestoringForce(mCameraPosition, gUserVelocity, (float)dt), gUserVelocity);
+		gUserVelocity.scaleAdd((float)dt, getRestoringForce(flashlight.getPosition(), gUserVelocity, (float)dt), gUserVelocity);
 		Point3f feet = new Point3f();
 		feet.add(mCameraPosition, gUserFeet); 
-		gUserVelocity.scaleAdd((float)dt, getRestoringForce(feet), gUserVelocity);
+		gUserVelocity.scaleAdd((float)dt, getRestoringForce(feet, gUserVelocity, (float)dt), gUserVelocity);
 		
 		gUserVelocity.scale(gDamping);
 		
-		mCameraPosition.scaleAdd((float)dt, gUserVelocity, mCameraPosition);
+		gUserVelocity.clamp(-gTopSpeed, gTopSpeed);
 		
-		//if (gFlying) {
-			
-		//}
+		mCameraPosition.scaleAdd((float)dt, gUserVelocity, mCameraPosition);
 		
 		// Detect collisions. Note- collision detection approach does not work.  Trying restoring forces...
 		/*
@@ -330,19 +335,29 @@ public class ExploreSceneController extends SceneController
 		cameraVelocity.scaleAdd(mCameraVelocity.y, forwardVector, cameraVelocity);
 		return cameraVelocity;
 	}
-	private Vector3f getRestoringForce(Point3f p) throws OpenGLException {
+	private Vector3f getRestoringForce(Point3f p, Vector3f v, float dt) throws OpenGLException {
 		if (terrainRenderer.evaluate(p) > 0.0f) {
 			return new Vector3f();
 		}
-		System.out.println("Restoring");
 		Vector3f normal = terrainRenderer.getNormal(p);
+		float vIn = normal.dot(v);
+		Vector3f parallel = new Vector3f();
+		parallel.scaleAdd(-normal.dot(v), normal, v);
 		Point3f exit = terrainRenderer.findWall(p, normal, gStepSize, 5f, false);
+		float perp;
 		if (exit==null) {
-			normal.scale(gRestoringForce*5f);
+			perp = gRestoringForce*5f*dt;
 		} else {
-			normal.scale(p.distance(exit)*gRestoringForce);
+			perp = p.distance(exit)*gRestoringForce*dt;
 		}
-		return normal;
+		if (vIn+perp > gEscapeSpeed) {
+			perp = gEscapeSpeed-vIn;
+		}
+		perp = perp < 0.0f ? 0.0f : perp;
+		parallel.scale(-gFriction);
+		parallel.scaleAdd(perp, normal, parallel);
+		parallel.scale(1.0f/dt);
+		return parallel;
 	}
 	
 	@Override
@@ -365,11 +380,7 @@ public class ExploreSceneController extends SceneController
 	
 	public void keyTyped(KeyEvent key) {
 		super.keyTyped(key);
-		char c = key.getKeyChar();
-		if (c == ' ') {
-			explosionHandler.addExplosion(
-						new Explosion(mCamera.getPosition(), EXPLOSION_RADIUS));
-		} else if (c == 'h') {
+		char c = key.getKeyChar();if (c == 'h') {
 			flashlight.setBias(flashlight.getBias() - 0.000001f);
 			System.out.println("Flashlight Bias: " + flashlight.getBias());
 			requiresRender();
@@ -433,6 +444,9 @@ public class ExploreSceneController extends SceneController
 		case KeyEvent.VK_D:
 			targetVelocity.x = +maxSpeed;
 			break;
+		case KeyEvent.VK_SPACE:
+			gJetPack = true;
+			break;
 		}
 		
 	}
@@ -444,6 +458,8 @@ public class ExploreSceneController extends SceneController
 			targetVelocity.y = 0.0f;
 		} else if (k==KeyEvent.VK_LEFT || k==KeyEvent.VK_RIGHT || k==KeyEvent.VK_A || k==KeyEvent.VK_D) {
 			targetVelocity.x = 0.0f;
+		} else if (k==KeyEvent.VK_SPACE) {
+			gJetPack = false;
 		}
 	}
 

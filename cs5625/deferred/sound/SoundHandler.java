@@ -15,7 +15,7 @@ public class SoundHandler implements Observer {
 	Thread mainSoundPlayer;
 	
 	public SoundHandler() {
-		mainSoundPlayer = new Thread(new SoundPlayer("sounds/bird.wav", Clip.LOOP_CONTINUOUSLY));
+		mainSoundPlayer = new Thread(new SoundPlayer("sounds/bird.wav", 1));
 		mainSoundPlayer.start();
 	}
 	
@@ -30,7 +30,7 @@ public class SoundHandler implements Observer {
 	@Override
 	public void update(Observerable o, Object obj) {
 		if (o instanceof ExplosionHandler) {
-			Thread explosionPlayer = new Thread(new SoundPlayer("sounds/boom.wav", 1));
+			Thread explosionPlayer = new Thread(new SoundPlayer("sounds/Blast.wav", 0));
 			explosionPlayer.start();
 		}
 	}

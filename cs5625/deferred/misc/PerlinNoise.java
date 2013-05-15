@@ -135,7 +135,6 @@ public class PerlinNoise {
 		if (pFract.z < 0) {
 			pFract.z++;
 		}
-		System.out.println(pFract);
 		Point3f faded = fade(pFract);
 		int A = perm(pFloor.x) + pFloor.y;
 		int AA = perm(A) + pFloor.z;

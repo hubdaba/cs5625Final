@@ -11,6 +11,7 @@ public class FlashLight extends ShadowCamera {
 	private SceneObject target;
 	/** The vector to the target  */
 	protected Vector3f relativePosition;
+	protected float mCoeff=8.0f, mRadius=0.4545f;
 
 	public FlashLight(Light selfsLight, SceneObject tar) {
 		super(selfsLight);
@@ -21,7 +22,16 @@ public class FlashLight extends ShadowCamera {
 	}
 	
 	public float getFlashlightCoefficient() {
-		return 2.0f;
+		return mCoeff;
+	}
+	public void setFlashlightCoefficient(float c) {
+		mCoeff = c;
+	}
+	public float getFlashlightRadius() {
+		return mRadius;
+	}
+	public void setFlashlightRadius(float r) {
+		mRadius = r;
 	}
 	public Vector3f getAimDirection() {
 		Vector3f dir = new Vector3f(0f, 0f, -1f);

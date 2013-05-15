@@ -129,7 +129,8 @@ public class Renderer
 				mShadowCamPositionLocation=-1, 			mBiasLocation=-1,				mShadowSampleWidthLocation=-1, 
 				mShadowMapWidthLocation=-1, 			mShadowMapHeightLocation=-1, 	mLightWidthLocation=-1, 
 				mShadowLightAttenuationsLocation=-1, 	mShadowLightColorsLocation=-1,	mLightMatrixLocation=-1, 
-				mInverseViewMatrixLocation=-1, 			mShadowLightDirectionLocation=-1,mFlashlightCoefficientLocation=-1;
+				mInverseViewMatrixLocation=-1, 			mShadowLightDirectionLocation=-1,mFlashlightCoefficientLocation=-1,
+				mFlashlightRadiusLocation=-1;
 	private int[] mShadowMapPositionLocation;
 	private int mMaxShadowsInUberShader;
 	
@@ -444,6 +445,7 @@ public class Renderer
 			
 			if (sc instanceof FlashLight) {
 				gl.glUniform1f(mFlashlightCoefficientLocation+j, ((FlashLight)sc).getFlashlightCoefficient());
+				gl.glUniform1f(mFlashlightRadiusLocation+j, ((FlashLight)sc).getFlashlightRadius());
 				Vector3f toTarget = ((FlashLight)sc).getAimDirection();
 				camera.transformVectorFromWorldSpace(toTarget);
 				gl.glUniform3f(mShadowLightDirectionLocation+j, toTarget.x, toTarget.y, toTarget.z);
@@ -899,6 +901,7 @@ public class Renderer
 			mInverseViewMatrixLocation = mUberShader.getUniformLocation(gl, "InverseViewMatrix"); 
 			mShadowLightDirectionLocation = mUberShader.getUniformLocation(gl, "ShadowLightDirection");
 			mFlashlightCoefficientLocation = mUberShader.getUniformLocation(gl, "FlashlightCoefficient");
+			mFlashlightRadiusLocation = mUberShader.getUniformLocation(gl, "FlashlightRadius");
 
 			/* Set material buffer indices once here, since they never have to change. */
 			mUberShader.bind(gl);
@@ -906,6 +909,7 @@ public class Renderer
 			gl.glUniform1i(mUberShader.getUniformLocation(gl, "PositionBuffer"), 1);
 			gl.glUniform1i(mUberShader.getUniformLocation(gl, "MaterialParams1Buffer"), 2);
 			gl.glUniform1i(mUberShader.getUniformLocation(gl, "MaterialParams2Buffer"), 3);
+			gl.glUniform1i(mUberShader.getUniformLocation(gl, "ParticleBuffer"), 6);
 			gl.glUniform3f(mUberShader.getUniformLocation(gl, "SkyColor"), 0.3f, 0.3f, 0.3f);
 			
 			int startTexNumber = 7;
