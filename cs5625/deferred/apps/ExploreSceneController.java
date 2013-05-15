@@ -35,6 +35,7 @@ import cs5625.deferred.particles.SmokeExplosion;
 import cs5625.deferred.particles.SmokeSource;
 import cs5625.deferred.scenegraph.PointLight;
 import cs5625.deferred.scenegraph.TerrainRenderer;
+import cs5625.deferred.sound.SoundHandler;
 
 /**
  * DefaultSceneController.java
@@ -75,6 +76,7 @@ public class ExploreSceneController extends SceneController
 
 	private TerrainRenderer terrainRenderer;
 	private ExplosionHandler explosionHandler;
+	private SoundHandler soundHandler;
 
 	private int millisec = 40;
 	
@@ -84,11 +86,23 @@ public class ExploreSceneController extends SceneController
 	
 	protected FlashLight flashlight;
 	protected PointLight sun;
+	
+	private long prevTime;
+	
+	private Vector3f gUserVelocity = new Vector3f();
+	private Vector3f gGravity = new Vector3f(0f, -2f, 0f);
+	private Vector3f gUserFeet = new Vector3f(0f, -4f, 0f);
+	private float gRestoringForce = 400f;
+	private float gDamping = 0.99f;
+	private float vRocketSpeed = 5f;
 
 	@Override
 	public void initializeScene()
 	{
+		soundHandler = new SoundHandler();
+		mCamera.setFar(100);
 		explosionHandler = new ExplosionHandler();
+		explosionHandler.addObserver(soundHandler);
 		QuadSampler quad1 = new QuadSampler(new Point3f(0, 0, 0), TerrainRenderer.BLOCK_SIZE);
 		QuadSampler quad2 = new QuadSampler(new Point3f(0, -TerrainRenderer.BLOCK_SIZE, 0), TerrainRenderer.BLOCK_SIZE);
 		List<QuadSampler> blocksToRender = new LinkedList<QuadSampler>();
@@ -97,7 +111,7 @@ public class ExploreSceneController extends SceneController
 		terrainRenderer = new TerrainRenderer(false, explosionHandler, null);
 		try
 		{
-			mCamera.setPosition(new Point3f(0.0f, 15.0f, 0.0f));
+			mCamera.setPosition(new Point3f(0.0f, 30.0f, 0.0f));
 			
 			mSceneRoot.addChild(terrainRenderer);
 			mCamera.addObserver(terrainRenderer);
@@ -107,10 +121,10 @@ public class ExploreSceneController extends SceneController
 			light.setColor(new Color3f(1f, 1f, 1f));
 
 			light.setConstantAttenuation(1.0f);
-			light.setLinearAttenuation(0.1f);
-			light.setQuadraticAttenuation(0.0f);
+			light.setLinearAttenuation(0.01f);
+			light.setQuadraticAttenuation(0.002f);
 
-			Point3f lightPosition = new Point3f(0f, -3f, 0f);
+			Point3f lightPosition = new Point3f(0f, -2f, 0f);
 			lightPosition.add(mCamera.getPosition());
 			light.setPosition(lightPosition);
 			//mSceneRoot.addChild(light);
@@ -126,10 +140,11 @@ public class ExploreSceneController extends SceneController
 			sun.setLinearAttenuation(0.0f);
 			sun.setQuadraticAttenuation(0.0f);
 
-			lightPosition = new Point3f(100f, 180f, 100f);
+			lightPosition = new Point3f(1000f, 1800f, 1000f);
 			lightPosition.add(mCamera.getPosition());
 			light.setPosition(lightPosition);
 			mSceneRoot.addChild(sun);
+
 			
 			/*
 			SmokeSystem smoke = new SmokeSystem();
@@ -164,6 +179,8 @@ public class ExploreSceneController extends SceneController
 			err.printStackTrace();
 			System.exit(-1);
 		}
+		
+		prevTime = System.currentTimeMillis();
 
 		/* Initialize camera position. */
 		updateCamera();
@@ -172,18 +189,22 @@ public class ExploreSceneController extends SceneController
 
 	private class simulator implements ActionListener {
 		public void actionPerformed(ActionEvent e) {
-			animate((double)millisec/1000.0);
+			long newTime = System.currentTimeMillis();
+			double dt = (double)(newTime-prevTime)/1000.0;
+			prevTime = newTime;
+			animate(dt);
 		}
 	}
 
 	private void animate(double dt) {
-		targetVelocity.scale(decay);
-		mCameraVelocity.scale(tau);
-		mCameraVelocity.scaleAdd(1.0f-tau, targetVelocity, mCameraVelocity);
-		mCameraPosition.scaleAdd((float)dt * mCameraVelocity.x, rightVector, mCameraPosition);
-		mCameraPosition.scaleAdd((float)dt * mCameraVelocity.y, forwardVector, mCameraPosition);
-		
 		mSceneRoot.animate((float)dt);
+
+		try {
+			advanceUser(dt);
+		} catch (OpenGLException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
 		
 		updateCamera();
 		requiresRender();
@@ -255,12 +276,82 @@ public class ExploreSceneController extends SceneController
 		}
 	}
 	
+	private void advanceUser(double dt) throws OpenGLException {
+		// Get rid of the old user velocity, and throw the new one on top.
+		gUserVelocity.sub(getCameraVelocity());
+		targetVelocity.scale(decay);
+		mCameraVelocity.scale(tau);
+		mCameraVelocity.scaleAdd(1.0f-tau, targetVelocity, mCameraVelocity);
+		gUserVelocity.scaleAdd((float)dt, gGravity);
+		gUserVelocity.add(getCameraVelocity());
+		
+		gUserVelocity.scaleAdd((float)dt, getRestoringForce(mCameraPosition), gUserVelocity);
+		gUserVelocity.scaleAdd((float)dt, getRestoringForce(flashlight.getPosition()), gUserVelocity);
+		Point3f feet = new Point3f();
+		feet.add(mCameraPosition, gUserFeet); 
+		gUserVelocity.scaleAdd((float)dt, getRestoringForce(feet), gUserVelocity);
+		
+		gUserVelocity.scale(gDamping);
+		
+		mCameraPosition.scaleAdd((float)dt, gUserVelocity, mCameraPosition);
+		
+		//if (gFlying) {
+			
+		//}
+		
+		// Detect collisions. Note- collision detection approach does not work.  Trying restoring forces...
+		/*
+		Vector3f dir = new Vector3f();
+		dir.normalize(gUserVelocity);
+		float dist = findDistanceToWall(mCameraPosition, dir, gUserVelocity.length()*((float)dt));
+		dist = Math.min(dist, findDistanceToWall(flashlight.getPosition(), dir, gUserVelocity.length()*((float)dt)));
+		Point3f feet = new Point3f();
+		feet.add(mCameraPosition, gUserFeet); 
+		dist = Math.min(dist, findDistanceToWall(feet, dir, gUserVelocity.length()*((float)dt)));
+		
+		// We hit something!  Let's back off a little
+		if (dist<gUserVelocity.length()*((float)dt)) {
+			dist -= gStepSize;
+		}
+		
+		// Move that distance!
+		mCameraPosition.scaleAdd(0.9f*dist, dir, mCameraPosition); */
+	}
+	private float findDistanceToWall(Point3f p, Vector3f dir, float max) throws OpenGLException {
+		Point3f hit = terrainRenderer.findWall(p, dir, gStepSize, max);
+		if (hit==null) {
+			return max;
+		}
+		return p.distance(hit);
+	}
+	private Vector3f getCameraVelocity() {
+		Vector3f cameraVelocity = new Vector3f();
+		cameraVelocity.scaleAdd(mCameraVelocity.x, rightVector, cameraVelocity);
+		cameraVelocity.scaleAdd(mCameraVelocity.y, forwardVector, cameraVelocity);
+		return cameraVelocity;
+	}
+	private Vector3f getRestoringForce(Point3f p) throws OpenGLException {
+		if (terrainRenderer.evaluate(p) > 0.0f) {
+			return new Vector3f();
+		}
+		System.out.println("Restoring");
+		Vector3f normal = terrainRenderer.getNormal(p);
+		Point3f exit = terrainRenderer.findWall(p, normal, gStepSize, 5f, false);
+		if (exit==null) {
+			normal.scale(gRestoringForce*5f);
+		} else {
+			normal.scale(p.distance(exit)*gRestoringForce);
+		}
+		return normal;
+	}
+	
 	@Override
 	public void mouseClicked(MouseEvent mouse) {
 		if (mouse.getButton()==3) {		// Right Click
 			forwardVector = new Vector3f(0.0f, 0.0f, -1.0f);
 			Util.rotateTuple(mCamera.getOrientation(), forwardVector);
 			forwardVector.normalize();
+
 			try {
 				Point3f newSplosion = terrainRenderer.findWall(mCamera.getWorldspacePosition(), forwardVector, gStepSize, gMaxDistance);
 				if (newSplosion != null) 

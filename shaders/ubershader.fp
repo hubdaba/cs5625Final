@@ -48,7 +48,7 @@ uniform vec3 LightColors[MAX_LIGHTS];
 #define PCF_SHADOW_MAP 1
 #define PCSS_SHADOW_MAP 2
 
-#define MAX_BLUR_SIZE 5f
+#define MAX_BLUR_SIZE 5.0
 
 /* Shadow map parameters */
 uniform int NumShadowMaps;
@@ -187,7 +187,7 @@ float getShadowStrength(vec3 position, int shadowSource) {
 	// the shadowmap view vector, and exponentiate by the flashlight coefficient
 	vec3 toFrag = normalize(position - ShadowCamPosition[shadowSource]);
 	float angle = acos(dot(toFrag, ShadowLightDirection[shadowSource]));
-	float flashlightDamp = max(1-pow(angle*2.2, 8), 0.0); 
+	float flashlightDamp = max(1.0-pow(angle*2.2, 8.0), 0.0); 
 	
 	vec4 unshiftedShadowCoord = LightMatrix[shadowSource] * InverseViewMatrix[shadowSource] * vec4(position, 1.0);
 	

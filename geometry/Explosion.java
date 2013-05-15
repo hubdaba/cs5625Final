@@ -27,7 +27,7 @@ public class Explosion {
 	public List<QuadSampler> getAffectedBlocks(float blockSize) {
 		List<QuadSampler> blocksAffected = new LinkedList<QuadSampler>();
 		Point3f minCorner = new Point3f(center);
-		minCorner.sub(new Vector3f(radius, radius, radius));
+		minCorner.sub(new Vector3f(radius, radius , radius ));
 		Point3f maxCorner = new Point3f(center);
 		maxCorner.add(new Vector3f(radius, radius, radius));
 		minCorner.x = (float) (Math.floor(minCorner.x/blockSize) * blockSize);

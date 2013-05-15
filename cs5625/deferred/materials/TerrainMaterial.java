@@ -49,6 +49,8 @@ public class TerrainMaterial extends Material {
 		this.densityFunction = densityFunction;
 	}
 	
+	private static boolean done = false;
+	
 	@Override
 	public void bind(GL2 gl) throws OpenGLException {
 		getShaderProgram().bind(gl);
@@ -67,6 +69,11 @@ public class TerrainMaterial extends Material {
 			gl.glUniform3f(mExplosionPositionUniformLocation[i], explosionPosition.x, 
 												explosionPosition.y, 
 												explosionPosition.z);
+			if (!done) {
+				System.out.println(explosionPosition);
+				System.out.println(lowerCorner);
+				done = true;
+			}
 		}
 		gl.glUniform3f(mDiffuseUniformLocation, 0.5f, 0.25f, 0.15f);
 		gl.glUniform3f(mLowerCornerUniformLocation, lowerCorner.x, lowerCorner.y, lowerCorner.z);

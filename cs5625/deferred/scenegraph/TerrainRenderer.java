@@ -39,7 +39,9 @@ public class TerrainRenderer extends SceneObject implements Observer {
 	private Material terrainMaterial;
 	private boolean isTest;
 	public static float BLOCK_SIZE = 32;
-	public static int NUM_VOXELS = 20;
+	public static int NUM_VOXELS = 15;
+	public static int LOW_NUM_VOXELS = 5;
+	public static float CLOSE_DISTANCE = 100;
 
 	private BlockingQueue<QuadSampler> explodedBlocks;
 	private List<QuadSampler> blocksToRender;
@@ -167,7 +169,6 @@ public class TerrainRenderer extends SceneObject implements Observer {
 
 	public float evaluate(Point3f point) throws OpenGLException {
 		Point3f blockMin = new Point3f();
-		System.out.println(point);
 		blockMin.x = (float) (Math.floor(point.x / BLOCK_SIZE) * BLOCK_SIZE);
 		blockMin.y = (float) (Math.floor(point.y / BLOCK_SIZE) * BLOCK_SIZE);
 		blockMin.z = (float) (Math.floor(point.z / BLOCK_SIZE) * BLOCK_SIZE);
@@ -177,7 +178,6 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		if (blocks.containsKey(blockMin)) {
 			TerrainBlockRenderer block = blocks.get(blockMin);
 			float sampled = block.getTexture3D().sample3D(difference);
-			System.out.println(sampled);
 			return sampled;
 		}
 		return 10000;
@@ -199,15 +199,17 @@ public class TerrainRenderer extends SceneObject implements Observer {
 		}
 	}
 
-	
 	public Point3f findWall(Point3f start, Vector3f dir, float stepSize, float farWall) throws OpenGLException {
+		return findWall(start, dir, stepSize, farWall, true);
+	}
+	public Point3f findWall(Point3f start, Vector3f dir, float stepSize, float farWall, boolean findNegative) throws OpenGLException {
 		Vector3f dr = new Vector3f();
 		dr.normalize(dir);
 		dr.scale(stepSize);
 		Point3f check = new Point3f(start);
 		float distTraveled = 0.0f;
 		float val = evaluate(check);
-		while (val > 0.0) {
+		while ((val > 0.0 && findNegative) || (val<0.0 && !findNegative)) {
 			distTraveled += stepSize;
 			check.add(dr);
 			val = evaluate(check);
@@ -216,5 +218,19 @@ public class TerrainRenderer extends SceneObject implements Observer {
 			}
 		}
 		return check;
+	}
+	
+	public Vector3f getGradient(Point3f p) throws OpenGLException {
+		float fOfP = evaluate(p);
+		float deltaX = evaluate(new Point3f(p.x+1f,p.y,p.z)) - fOfP;
+		float deltaY = evaluate(new Point3f(p.x,p.y+1f,p.z)) - fOfP;
+		float deltaZ = evaluate(new Point3f(p.x,p.y,p.z+1f)) - fOfP;
+		Vector3f n = new Vector3f(deltaX, deltaY, deltaZ);
+		return n;
+	}
+	public Vector3f getNormal(Point3f p) throws OpenGLException {
+		Vector3f n = getGradient(p);
+		n.normalize();
+		return n;
 	}
 }

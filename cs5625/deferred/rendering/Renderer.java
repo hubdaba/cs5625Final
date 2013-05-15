@@ -1,9 +1,7 @@
 package cs5625.deferred.rendering;
 
-import java.awt.Frame;
 import java.io.IOException;
 import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,15 +12,12 @@ import javax.media.opengl.glu.GLU;
 import javax.vecmath.AxisAngle4f;
 import javax.vecmath.Color3f;
 import javax.vecmath.Matrix4f;
-import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
 import javax.vecmath.Vector3f;
 
-import com.jogamp.common.nio.Buffers;
-
-import cs5625.deferred.lighting.ShadowCamera;
 import cs5625.deferred.lighting.FlashLight;
+import cs5625.deferred.lighting.ShadowCamera;
 import cs5625.deferred.materials.Material;
 import cs5625.deferred.materials.Texture.Datatype;
 import cs5625.deferred.materials.Texture.Format;

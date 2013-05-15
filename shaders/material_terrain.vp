@@ -12,6 +12,7 @@ uniform vec3 LowerCorner;
 uniform float NumVoxels;
 uniform float BlockSize;
 
+
 void main()
 {
 
@@ -20,29 +21,33 @@ void main()
 	voxel_coord.x = int(coordinate.x * NumVoxels);
 	voxel_coord.y = int(coordinate.y * NumVoxels);
 	voxel_coord.z = int(coordinate.z * NumVoxels) + 1;
-	
 	 
 	vec3 gradient = vec3(0.0);
 	if (voxel_coord.x == NumVoxels) {
 		gradient.x = - texelFetch3D(DensityFunction, voxel_coord, 0).x
 	 			+ texelFetch3D(DensityFunction, voxel_coord - ivec3(1, 0, 0), 0).x;
+	 	
 	} else {
 		gradient.x = texelFetch3D(DensityFunction, voxel_coord, 0).x
 	 			- texelFetch3D(DensityFunction, voxel_coord + ivec3(1, 0, 0), 0).x;
+	 			
 	}
 	if (voxel_coord.y == NumVoxels) {
 		gradient.y = - texelFetch3D(DensityFunction, voxel_coord, 0).x
 	 			+ texelFetch3D(DensityFunction, voxel_coord - ivec3(0, 1, 0), 0).x;
+	 		
 	} else {
 		gradient.y = texelFetch3D(DensityFunction, voxel_coord, 0).x
 	 			- texelFetch3D(DensityFunction, voxel_coord + ivec3(0, 1, 0), 0).x;
+	 		
 	}
 	if (voxel_coord.z == NumVoxels + 1) {
 		gradient.z = - texelFetch3D(DensityFunction, voxel_coord, 0).x
 	 			+ texelFetch3D(DensityFunction, voxel_coord - ivec3(0, 0, 1), 0).x;
-	} else {
+	 			} else {
 		gradient.z = texelFetch3D(DensityFunction, voxel_coord, 0).x
 	 			- texelFetch3D(DensityFunction, voxel_coord + ivec3(0, 0, 1), 0).x;
+	 		
 	}			
 	 			
 	 					
