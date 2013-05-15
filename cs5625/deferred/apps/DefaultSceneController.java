@@ -9,6 +9,7 @@ import javax.vecmath.Color3f;
 import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
 
+import cs5625.deferred.lighting.StageLight;
 import cs5625.deferred.materials.LambertianMaterial;
 import cs5625.deferred.misc.Util;
 import cs5625.deferred.scenegraph.Geometry;
@@ -57,8 +58,11 @@ public class DefaultSceneController extends SceneController
 			light.setLinearAttenuation(0.0f);
 			light.setQuadraticAttenuation(0.0f);
 			
-			light.setPosition(new Point3f(50.0f, 180.0f, 100.0f));
-			mSceneRoot.addChild(light);		 	
+			updateCamera();
+			light.setPosition(mCamera.getWorldspacePosition());
+			//mSceneRoot.addChild(light);
+			StageLight sl = new StageLight(light, mCamera);
+			mRenderer.addShadowCamera(sl);
 		}
 		catch (Exception err)
 		{

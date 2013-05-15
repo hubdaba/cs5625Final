@@ -19,7 +19,7 @@ const int BLINNPHONG_MATERIAL_ID = 3;
 const int TERRAIN_MATERIAL_ID = 4;
 
 /* Some constant maximum number of lights which GLSL and Java have to agree on. */
-#define MAX_LIGHTS 40
+#define MAX_LIGHTS 30
 
 /* Samplers for each texture of the GBuffer. */
 uniform sampler2DRect DiffuseBuffer;
@@ -42,23 +42,29 @@ uniform vec3 LightPositions[MAX_LIGHTS];
 uniform vec3 LightAttenuations[MAX_LIGHTS];
 uniform vec3 LightColors[MAX_LIGHTS];
 
-#define MAX_SHADOW_MAPS 10
+#define MAX_SHADOW_MAPS 2
+
 #define DEFAULT_SHADOW_MAP 0
 #define PCF_SHADOW_MAP 1
-#define PCSS SHADOW_MAP 2
+#define PCSS_SHADOW_MAP 2
+
+#define MAX_BLUR_SIZE 5.0
 
 /* Shadow map parameters */
 uniform int NumShadowMaps;
 uniform int ShadowMode;
-uniform sampler2D ShadowMap[MAX_SHADOW_MAPS];
-uniform vec3 ShadowCamPosition[MAX_SHADOW_MAPS];
+uniform sampler2D ShadowMaps[MAX_SHADOW_MAPS];
 uniform float bias[MAX_SHADOW_MAPS];
 uniform float ShadowSampleWidth[MAX_SHADOW_MAPS];
 uniform float ShadowMapWidth[MAX_SHADOW_MAPS];
 uniform float ShadowMapHeight[MAX_SHADOW_MAPS];
 uniform float LightWidth[MAX_SHADOW_MAPS];
+
+uniform vec3 ShadowCamPosition[MAX_SHADOW_MAPS];
 uniform vec3 ShadowLightAttenuations[MAX_SHADOW_MAPS];
 uniform vec3 ShadowLightColors[MAX_SHADOW_MAPS];
+uniform vec3 ShadowLightDirection[MAX_SHADOW_MAPS];
+uniform float FlashlightCoefficient[MAX_SHADOW_MAPS];
 
 /* Pass the shadow camera Projection * View matrix to help transform points, as well the Camera inverse-view Matrix */
 uniform mat4 LightMatrix[MAX_SHADOW_MAPS];
@@ -74,14 +80,134 @@ vec3 decode(vec2 v)
 	return n;
 }
 
-/**
- * Performs the "3x3 nonlinear filter" mentioned in Decaudin 1996 to detect silhouettes
- * based on the silhouette buffer.
- */
-float silhouetteStrength()
+
+// Converts the depth buffer value to a linear value
+float DepthToLinear(float value)
 {
-	// TODO PA4 Prereq (Optional): Paste in your silhouetteStrength code if you like toon shading.
+	float near = 0.1;
+	float far = 100.0;
+	return (2.0 * near) / (far + near - value * (far - near));
+}
+
+/** Returns how shadowed this coordinate is. 0 = shadowed, 1 = not shadowed, anywhere in between
+ */
+float getShadowVal(vec4 shadowCoord, vec2 offset, int shadowSource) 
+{
+	// If your fragment is behind the camera, assume no occlusion
+	if (shadowCoord.z < 0.0) {  return 1.0;  }
+	
+	float texDepth = texture2D(ShadowMaps[shadowSource], shadowCoord.xy + offset).z;
+	
+	// If the shadowmap only sees the background, assume unoccluded
+	if (texDepth == 0.0) {  return 1.0;  }
+	
+	// Otherwise, we have a valid occluder to test.  Test it!	
+	if (shadowCoord.z <= texDepth + bias[shadowSource]) {
+		return 1.0;
+	}
 	return 0.0;
+}
+
+/** Calculates regular shadow map algorithm shadow strength
+ *
+ * @param shadowCoord The location of the position in the light projection space
+ */
+ float getDefaultShadowMapVal(vec4 shadowCoord, int shadowSource)
+ {
+	return getShadowVal(shadowCoord, vec2(0.0), shadowSource);
+ }
+ 
+ /** Calculates PCF shadow map algorithm shadow strength
+ *
+ * @param shadowCoord The location of the position in the light projection space
+ */
+float getPCFShadowMapVal(vec4 shadowCoord, int shadowSource)
+ {
+ 	float shade = 0.0;
+ 	for (float i=-ShadowSampleWidth[shadowSource]/ShadowMapWidth[shadowSource]; i<=ShadowSampleWidth[shadowSource]/ShadowMapWidth[shadowSource]; i+=1.0/ShadowMapWidth[shadowSource]) {
+ 		for (float j=-ShadowSampleWidth[shadowSource]/ShadowMapHeight[shadowSource]; j<=ShadowSampleWidth[shadowSource]/ShadowMapHeight[shadowSource]; j+=1.0/ShadowMapHeight[shadowSource]) {
+ 			shade += getShadowVal(shadowCoord, vec2(i,j), shadowSource);
+ 		}
+ 	}
+ 	float width = 2.0 * ShadowSampleWidth[shadowSource] + 1.0;
+ 	return shade / (width * width);
+ }
+ 
+ /** Calculates PCSS shadow map algorithm shadow strength
+ *
+ * @param shadowCoord The location of the position in the light projection space
+ */
+ float getPCSSShadowMapVal(vec4 shadowCoord, int shadowSource)
+ {
+ 	
+ 	// Average visible depth values
+ 	float avgOccDepth = 0.0;
+ 	float numAvgd = 0.0;
+ 	float fragDepth = DepthToLinear(shadowCoord.z);
+ 	float texDepth;
+ 	// Use LigthWidth as a RADIUS of our square range to average over
+ 	// Note: physically it may be meant to be the side length, but it is kind of arbitrary
+ 	for (float i=-LightWidth[shadowSource]/ShadowMapWidth[shadowSource]; i<=LightWidth[shadowSource]/ShadowMapWidth[shadowSource]; i+=1.0/ShadowMapWidth[shadowSource]) {
+ 		for (float j=-LightWidth[shadowSource]/ShadowMapHeight[shadowSource]; j<=LightWidth[shadowSource]/ShadowMapHeight[shadowSource]; j+=1.0/ShadowMapHeight[shadowSource]) {
+ 			texDepth = DepthToLinear(texture2D(ShadowMaps[shadowSource], shadowCoord.xy + vec2(i,j)).z);
+ 			if (fragDepth > texDepth + bias[shadowSource]) {
+ 				// It is an occluder
+ 				numAvgd += 1.0;
+ 				avgOccDepth += texDepth;
+ 			}
+ 		}
+ 	}
+ 	if (numAvgd == 0.0) {
+ 		return 1.0;      // Certainly unoccluded
+ 	}
+ 	avgOccDepth /= numAvgd;
+ 	
+ 	// Perform PCF with width acquired by average occluder depth
+ 	float sampleWidth = ceil((DepthToLinear(shadowCoord.z)-avgOccDepth) * LightWidth[shadowSource] / avgOccDepth); // DONE: use ceil or floor to reduce blocky artifacts
+ 	sampleWidth = min(sampleWidth, MAX_BLUR_SIZE);
+ 	
+ 	float shade = 0.0;
+ 	for (float i=-sampleWidth/ShadowMapWidth[shadowSource]; i<=sampleWidth/ShadowMapWidth[shadowSource]; i+=1.0/ShadowMapWidth[shadowSource]) {
+ 		for (float j=-sampleWidth/ShadowMapHeight[shadowSource]; j<=sampleWidth/ShadowMapHeight[shadowSource]; j+=1.0/ShadowMapHeight[shadowSource]) {
+			shade += getShadowVal(shadowCoord, vec2(i,j), 0);
+ 		}
+ 	}
+ 	float width = 2.0 * sampleWidth + 1.0;
+ 	return shade / (width * width);
+ }
+
+/** Gets the shadow value based on the current shadowing mode
+ *
+ * @param position The eyespace position of the surface at this fragment
+ *
+ * @return A 0-1 value for how shadowed the object is. 0 = shadowed and 1 = lit
+ */
+float getShadowStrength(vec3 position, int shadowSource) {
+	// Find the vector from the light to the fragment in eyespace, dot it with
+	// the shadowmap view vector, and exponentiate by the flashlight coefficient
+	vec3 toFrag = normalize(position - ShadowCamPosition[shadowSource]);
+	float angle = acos(dot(toFrag, ShadowLightDirection[shadowSource]));
+	float flashlightDamp = max(1.0-pow(angle*2.2, 8.0), 0.0); 
+	
+	vec4 unshiftedShadowCoord = LightMatrix[shadowSource] * InverseViewMatrix[shadowSource] * vec4(position, 1.0);
+	
+	if (unshiftedShadowCoord.w != 0.0) {
+		unshiftedShadowCoord /= unshiftedShadowCoord.w;
+	}
+	// Multiply by bias
+	vec4 ShadowCoord = vec4( unshiftedShadowCoord.xyz * 0.5 + 0.5, 1.0 );
+	if (ShadowMode == DEFAULT_SHADOW_MAP)
+	{
+		return flashlightDamp * getDefaultShadowMapVal(ShadowCoord, 0);
+	}
+	else if (ShadowMode == PCF_SHADOW_MAP)
+	{
+		return flashlightDamp * getPCFShadowMapVal(ShadowCoord, 0);
+	}
+	else
+	{
+		return flashlightDamp * getPCSSShadowMapVal(ShadowCoord, 0);
+	}
 }
 
 /**
@@ -181,6 +307,12 @@ void main()
 		{
 			gl_FragColor.rgb += shadeLambertian(diffuse, position, normal, LightPositions[i], LightColors[i], LightAttenuations[i]);
 		}
+		/* Accumulate Shadow light source contributions */
+		for (int j = 0; j < NumShadowMaps; ++j)
+		{
+			gl_FragColor.rgb += shadeLambertian(diffuse, position, normal, ShadowCamPosition[j], ShadowLightColors[j], ShadowLightAttenuations[j]) * 
+									getShadowStrength(position, j);
+		}
 	}
 	else if (materialID == BLINNPHONG_MATERIAL_ID)
 	{
@@ -190,6 +322,13 @@ void main()
 			gl_FragColor.rgb += shadeBlinnPhong(diffuse, materialParams1.gba, materialParams2.a,
 				position, normal, LightPositions[i], LightColors[i], LightAttenuations[i]);
 		}
+		/* Accumulate Shadow light source contributions */
+		for (int j = 0; j < NumShadowMaps; ++j)
+		{
+			gl_FragColor.rgb += shadeBlinnPhong(diffuse, materialParams1.gba, materialParams2.a,
+										position, normal, ShadowCamPosition[j], ShadowLightColors[j], ShadowLightAttenuations[j]) * 
+									getShadowStrength(position, j);
+		}
 	}
 	else if (materialID == TERRAIN_MATERIAL_ID)
 	{
@@ -198,16 +337,17 @@ void main()
 		{
 			gl_FragColor.rgb += shadeLambertian(diffuse, position, normal, LightPositions[i], LightColors[i], LightAttenuations[i]);
 		}
+		/* Accumulate Shadow light source contributions */
+		for (int j = 0; j < NumShadowMaps; ++j)
+		{
+			gl_FragColor.rgb += shadeLambertian(diffuse, position, normal, ShadowCamPosition[j], ShadowLightColors[j], ShadowLightAttenuations[j]) * 
+									getShadowStrength(position, j);
+		}
 	}
 	else
 	{
 		/* Unknown material, so just use the diffuse color. */
 		gl_FragColor.rgb = diffuse;
-	}
-
-	if (EnableToonShading)
-	{
-		gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.0), silhouetteStrength()); 
 	}
 	
 	if (EnableSSAO)
@@ -218,5 +358,4 @@ void main()
 	/* Add in alpha blended particles */
 	vec4 pColor = texture2DRect(ParticleBuffer, gl_FragCoord.xy);
 	gl_FragColor.rgb = (gl_FragColor.rgb*(1.0-pColor.a) + pColor.rgb); //*pColor.a);		//pColor.rgb is already weighted...
-	//gl_FragColor += pColor * pColor.a;
 }

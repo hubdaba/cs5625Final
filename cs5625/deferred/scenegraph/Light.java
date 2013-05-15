@@ -1,6 +1,13 @@
 package cs5625.deferred.scenegraph;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import javax.vecmath.Color3f;
+import javax.vecmath.Point3f;
+
+import cs5625.deferred.misc.Observer;
+import cs5625.deferred.misc.Observerable;
 
 /**
  * Light.java
@@ -13,7 +20,7 @@ import javax.vecmath.Color3f;
  * @author Asher Dunn (ad488)
  * @date 2012-03-23
  */
-public class Light extends SceneObject
+public class Light extends SceneObject implements Observerable
 {
 	private Color3f mColor = new Color3f(1.0f, 1.0f, 1.0f);
 

@@ -4,7 +4,7 @@ uniform float NumVoxels;
 uniform float BlockSize;
 
 uniform int NumExplosions;
-uniform vec3 ExplosionPositions[5];
+uniform vec3 ExplosionPositions[50];
 
 uniform float ExplosionRadius;
 

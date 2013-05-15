@@ -14,24 +14,26 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
-import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
 import javax.swing.Timer;
 import javax.vecmath.AxisAngle4f;
+import javax.vecmath.Color3f;
+import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
 import javax.vecmath.Vector2f;
 import javax.vecmath.Vector3f;
 
+import cs5625.deferred.lighting.FlashLight;
+import cs5625.deferred.lighting.SunLight;
 import cs5625.deferred.misc.OpenGLException;
-import cs5625.deferred.misc.ScenegraphException;
 import cs5625.deferred.misc.Util;
+import cs5625.deferred.particles.Particle;
 import cs5625.deferred.particles.SmokeExplosion;
-import cs5625.deferred.scenegraph.Geometry;
+import cs5625.deferred.particles.SmokeSource;
 import cs5625.deferred.scenegraph.PointLight;
-import cs5625.deferred.scenegraph.SceneObject;
 import cs5625.deferred.scenegraph.TerrainRenderer;
 import cs5625.deferred.sound.SoundHandler;
 
@@ -52,21 +54,21 @@ import cs5625.deferred.sound.SoundHandler;
  */
 public class ExploreSceneController extends SceneController
 {
-
-	public static float EXPLOSION_RADIUS = 5.0f;
-
+	
+	public static float EXPLOSION_RADIUS = 10.0f;
+	
 	/* Keeps track of camera's orbit position. Latitude and longitude are in degrees. */
 	private float mCameraLongitude = 50.0f, mCameraLatitude = -40.0f;
 	private Point3f mCameraPosition = new Point3f(12f, 12f, 12f);
 	private Vector2f mCameraVelocity = new Vector2f();
 	private Vector3f rightVector = new Vector3f();
 	private Vector3f forwardVector = new Vector3f();
-
+	
 	private float tau = 0.65f;
 	private float decay = 0.999f;	// Just for sanity, in case a call is missed (and it helped in diagnostics)
 	private Vector2f targetVelocity = new Vector2f();
 	private float maxSpeed = 5.0f;
-
+	
 	private float rotScale = 0.3f;
 
 	/* Used to calculate mouse deltas to orbit the camera in mouseDragged(). */ 
@@ -77,10 +79,13 @@ public class ExploreSceneController extends SceneController
 	private SoundHandler soundHandler;
 
 	private int millisec = 40;
-
+	
 	// GAME PARAMETERS
 	private float gStepSize = 0.1f;
 	private float gMaxDistance = 250f;		// Maybe the far plane distance?  Maybe arbitrary?
+	
+	protected FlashLight flashlight;
+	protected PointLight sun;
 
 	@Override
 	public void initializeScene()
@@ -97,19 +102,40 @@ public class ExploreSceneController extends SceneController
 		terrainRenderer = new TerrainRenderer(false, explosionHandler, null);
 		try
 		{
+			mCamera.setPosition(new Point3f(0.0f, 15.0f, 0.0f));
+			
 			mSceneRoot.addChild(terrainRenderer);
 			mCamera.addObserver(terrainRenderer);
 			explosionHandler.addObserver(terrainRenderer);
 			/* Add an unattenuated point light to provide overall illumination. */
 			PointLight light = new PointLight();
+			light.setColor(new Color3f(1f, 1f, 1f));
 
 			light.setConstantAttenuation(1.0f);
-			light.setLinearAttenuation(0.0f);
+			light.setLinearAttenuation(0.1f);
 			light.setQuadraticAttenuation(0.0f);
 
-			light.setPosition(new Point3f(50.0f, 180.0f, 100.0f));
-			mSceneRoot.addChild(light);	
+			Point3f lightPosition = new Point3f(0f, -3f, 0f);
+			lightPosition.add(mCamera.getPosition());
+			light.setPosition(lightPosition);
+			//mSceneRoot.addChild(light);
+			flashlight = new FlashLight(light, mCamera);
+			flashlight.setFOV(75);
+			mRenderer.addShadowCamera(flashlight);
+			
+			
+			sun = new PointLight();
+			sun.setColor(new Color3f(.1f, .1f, .1f));
 
+			sun.setConstantAttenuation(1.0f);
+			sun.setLinearAttenuation(0.0f);
+			sun.setQuadraticAttenuation(0.0f);
+
+			lightPosition = new Point3f(100f, 180f, 100f);
+			lightPosition.add(mCamera.getPosition());
+			light.setPosition(lightPosition);
+			mSceneRoot.addChild(sun);
+			
 			/*
 			SmokeSystem smoke = new SmokeSystem();
 			Particle p = new Particle();
@@ -120,7 +146,7 @@ public class ExploreSceneController extends SceneController
 			p.x = new Point3d(0.0, -2.0, 0.0);
 			p.radius = 4f;
 			smoke.addParticle(p); */
-
+			
 			/*
 			SmokeSystem smoke = new SmokeSystem();
 			int N = 20;
@@ -161,9 +187,9 @@ public class ExploreSceneController extends SceneController
 		mCameraVelocity.scaleAdd(1.0f-tau, targetVelocity, mCameraVelocity);
 		mCameraPosition.scaleAdd((float)dt * mCameraVelocity.x, rightVector, mCameraPosition);
 		mCameraPosition.scaleAdd((float)dt * mCameraVelocity.y, forwardVector, mCameraPosition);
-
+		
 		mSceneRoot.animate((float)dt);
-
+		
 		updateCamera();
 		requiresRender();
 	}
@@ -233,47 +259,74 @@ public class ExploreSceneController extends SceneController
 			mCameraLatitude = 89.0f * Math.signum(mCameraLatitude);
 		}
 	}
-
+	
 	@Override
 	public void mouseClicked(MouseEvent mouse) {
 		if (mouse.getButton()==3) {		// Right Click
 			forwardVector = new Vector3f(0.0f, 0.0f, -1.0f);
 			Util.rotateTuple(mCamera.getOrientation(), forwardVector);
 			forwardVector.normalize();
-			Point3f newSplosion = findWall(mCamera.getWorldspacePosition(), forwardVector);
-			if (newSplosion != null)  {
-				System.out.println(newSplosion);
-				explosionHandler.addExplosion(new Explosion(newSplosion, EXPLOSION_RADIUS));
-				
-			}
+
+			try {
+				Point3f newSplosion = findWall(mCamera.getWorldspacePosition(), forwardVector);
+				if (newSplosion != null) 
+					explosionHandler.addExplosion(new Explosion(newSplosion, EXPLOSION_RADIUS));
+			} catch (OpenGLException e) {
+				// Do nothing if it crashes- might just mean it missed all the walls.
+				// It's not really important, but we definitely don't want to disturb the user
+			} 
 		}
 	}
-
+	
 	public void keyTyped(KeyEvent key) {
 		super.keyTyped(key);
 		char c = key.getKeyChar();
 		if (c == ' ') {
 			explosionHandler.addExplosion(
-					new Explosion(mCamera.getPosition(), EXPLOSION_RADIUS));
-
-			try {
-				List<Geometry> cubes = Geometry.load("models/cube.obj", true, true);
-				SceneObject cubeObject = new SceneObject();
-				cubeObject.setPosition(new Point3f(mCamera.getPosition()));
-				cubeObject.addGeometry(cubes);
-				//cubeObject.setScale(100f);
-				mSceneRoot.addChild(cubeObject);
-			} catch (ScenegraphException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+						new Explosion(mCamera.getPosition(), EXPLOSION_RADIUS));
+		} else if (c == 'd') {
+			flashlight.setBias(flashlight.getBias() - 0.000001f);
+			System.out.println("Flashlight Bias: " + flashlight.getBias());
+			requiresRender();
+		}
+		else if (c == 'D') {
+			flashlight.setBias(flashlight.getBias() + 0.000001f);
+			System.out.println("Flashlight Bias: " + flashlight.getBias());
+		}
+		else if (c == 'a') {
+			mRenderer.incrementShadowMode();
+			int mode = mRenderer.getShadowMode();
+			String modeString = (mode == 0 ? "DEFAULT SHADOWMAP" : (mode == 1 ? "PCF SHADOWMAP" : "PCSS SHADOWMAP"));
+			System.out.println("Shadow Map mode: " + modeString);
+			requiresRender();
+		}
+		else if (c == 'f') {
+			if (mRenderer.getShadowMode() == 1) {
+				flashlight.setShadowSampleWidth(flashlight.getShadowSampleWidth()-1);
+				System.out.println("Flashlight Sample Width: " + flashlight.getShadowSampleWidth());
+				requiresRender();
+			}
+			if (mRenderer.getShadowMode() == 2) {
+				flashlight.setLightWidth(flashlight.getLightWidth() - 1);
+				System.out.println("Flashlight Light Width: " + flashlight.getLightWidth());
+				requiresRender();
+			}
+		}
+		else if (c == 'F') {
+			if (mRenderer.getShadowMode() == 1) {
+				flashlight.setShadowSampleWidth(flashlight.getShadowSampleWidth()+1);
+				System.out.println("Flashlight Sample Width: " + flashlight.getShadowSampleWidth());
+				requiresRender();
+			}
+			if (mRenderer.getShadowMode() == 2) {
+				flashlight.setLightWidth(flashlight.getLightWidth() + 1);
+				System.out.println("Flashlight Light Width: " + flashlight.getLightWidth());
+				requiresRender();
 			}
 		}
 	}
-
-
+	
+	
 
 	public void keyPressed(KeyEvent key)
 	{
@@ -292,7 +345,7 @@ public class ExploreSceneController extends SceneController
 			targetVelocity.x = +maxSpeed;
 			break;
 		}
-
+		
 	}
 	public void keyReleased(KeyEvent key)
 	{
@@ -304,29 +357,24 @@ public class ExploreSceneController extends SceneController
 			targetVelocity.x = 0.0f;
 		}
 	}
-
-	public Point3f findWall(Point3f start, Vector3f dir) {
+	
+	public Point3f findWall(Point3f start, Vector3f dir) throws OpenGLException {
 		Vector3f dr = new Vector3f();
 		dr.normalize(dir);
 		dr.scale(gStepSize);
 		Point3f check = new Point3f(start);
 		float distTraveled = 0.0f;
-		float val;
-		try {
+		float val = terrainRenderer.evaluate(check);
+		while (val > 0.0) {
+			distTraveled += gStepSize;
+			check.add(dr);
 			val = terrainRenderer.evaluate(check);
-			while (val > 0.0) {
-				distTraveled += gStepSize;
-				check.add(dr);
-				val = terrainRenderer.evaluate(check);
-				if (distTraveled > gMaxDistance) {
-					return null;
-				}
-			}
-		} catch (OpenGLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
 
+			System.out.println(val);
+			if (distTraveled > gMaxDistance) {
+				return null;
+			}
+		}		
 		return check;
 	}
 

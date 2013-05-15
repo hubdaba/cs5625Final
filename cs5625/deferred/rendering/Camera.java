@@ -9,6 +9,7 @@ import java.util.List;
 import javax.vecmath.Matrix4f;
 import javax.vecmath.Point3f;
 
+import cs5625.deferred.lighting.ShadowCamera;
 import cs5625.deferred.misc.Observer;
 import cs5625.deferred.misc.Observerable;
 import cs5625.deferred.scenegraph.SceneObject;
@@ -34,8 +35,6 @@ public class Camera extends SceneObject implements Observerable, Frustum
 	private float mFar = 100.0f;
 
 	private List<Observer> observers;
-	
-	private Boolean iAmShadowCamera = null;
 
 	public Camera() {
 		super();
@@ -137,9 +136,6 @@ public class Camera extends SceneObject implements Observerable, Frustum
 	}
 	
 	public boolean isShadowCamera() {
-		if (iAmShadowCamera == null) {
-			iAmShadowCamera = this instanceof ShadowCamera;
-		}
-		return iAmShadowCamera;
+		return false; 
 	}
 }

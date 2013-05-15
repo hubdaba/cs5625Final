@@ -10,6 +10,8 @@ import javax.vecmath.Point3f;
 import javax.vecmath.Quat4f;
 import javax.vecmath.Vector3f;
 
+import cs5625.deferred.misc.Observer;
+import cs5625.deferred.misc.Observerable;
 import cs5625.deferred.misc.OpenGLResourceObject;
 import cs5625.deferred.misc.ScenegraphException;
 import cs5625.deferred.misc.Util;
@@ -27,7 +29,7 @@ import cs5625.deferred.misc.Util;
  * @author Asher Dunn (ad488)
  * @date 2012-03-23
  */
-public class SceneObject implements OpenGLResourceObject
+public class SceneObject implements OpenGLResourceObject, Observerable
 {
 	/* Attributes common to all SceneObject subclasses. */
 	protected Point3f mPosition = new Point3f();
@@ -39,6 +41,8 @@ public class SceneObject implements OpenGLResourceObject
 	
 	/* List of child nodes. */
 	private ArrayList<SceneObject> mChildren = new ArrayList<SceneObject>();
+	
+	List<Observer> observers = new ArrayList<Observer>();
 	
 	/**
 	 * Updates any animation for this node at each frame, if any.
@@ -237,6 +241,9 @@ public class SceneObject implements OpenGLResourceObject
 	public void setPosition(Point3f position)
 	{
 		mPosition = position;
+		for (Observer o : observers) {
+			o.update(this);
+		}
 	}
 	
 	/**
@@ -566,6 +573,13 @@ public class SceneObject implements OpenGLResourceObject
 		{
 			child.releaseGPUResources(gl);
 		}
+	}
+
+	/**
+	 * Wait for an update as to when the object moves
+	 */
+	public void addObserver(Observer o) {
+		observers.add(o);
 	}
 
 }

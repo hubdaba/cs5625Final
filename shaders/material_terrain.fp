@@ -19,9 +19,7 @@ varying vec3 EyespaceNormal;
 varying vec3 WorldspacePosition;
 varying vec3 WorldspaceNormal;
 
-varying float Explosion;
-
-float tex_scale = 1.0/4.0;
+float tex_scale = 1.0/15.0;
 
 /* Encodes a normalized vector as a vec2. See Renderer.java for more info. */
 vec2 encode(vec3 n)
@@ -90,9 +88,6 @@ void main()
 		diffuse_color = mix(mossColor, rockColor, blendAmount);
 	} else {
 		diffuse_color = mossColor;
-	}
-	if (Explosion > 0.0) {
-		diffuse_color = vec3(0.0, 0.0, 0.0);
 	}
   	gl_FragData[0] = vec4(diffuse_color, enc.x);
     gl_FragData[1] = vec4(EyespacePosition, enc.y);
