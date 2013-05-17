@@ -148,7 +148,7 @@ public class Renderer
 	{
 		GL2 gl = drawable.getGL().getGL2();	
 
-	
+		prepareAllObjectsToRender(sceneRoot);
 		
 		try
 		{
@@ -185,6 +185,14 @@ public class Renderer
 		} catch (Exception err) {
 				/* If an error occurs in all that, print it, but don't kill the whole program. */
 			err.printStackTrace();
+		}
+	}
+	
+	private void prepareAllObjectsToRender(SceneObject root) {
+		root.prepareRender();
+		for (SceneObject child : root.getChildren())
+		{
+			prepareAllObjectsToRender(child);
 		}
 	}
 	
@@ -735,7 +743,6 @@ public class Renderer
 		HashMap<String, Integer> fbos = mesh.getMaterial().getRequiredFBOs();
 		for (String fbo : fbos.keySet()) {
 			if (fbo.equals("Diffuse")) {
-				System.out.println(fbos.get(fbo));
 				mGBufferFBO.getColorTexture(GBuffer_DiffuseIndex).bind(gl, fbos.get(fbo));
 			} else if (fbo.equals("Position")){
 				mGBufferFBO.getColorTexture(GBuffer_PositionIndex).bind(gl, fbos.get(fbo));

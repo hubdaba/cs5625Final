@@ -130,4 +130,11 @@ public class SmokeExplosion extends Geometry implements Observer {
 	class SmokeParticle extends Particle {
 		float tau;
 	}
+	
+	public void prepareRender() {
+		PS.dumpParticles();
+		updateTaus();
+		updateRadii();
+		PS.updateAttribs();
+	}
 }

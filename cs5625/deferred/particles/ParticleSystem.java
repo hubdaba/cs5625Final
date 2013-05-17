@@ -5,6 +5,9 @@ import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import javax.vecmath.Point3f;
 
@@ -22,8 +25,10 @@ public class ParticleSystem extends Mesh {
 	protected boolean mIsOpaque = false;
 	
 	int numParticles = 0;
+	
+	BlockingQueue<Particle> queue = new LinkedBlockingQueue<Particle>();
 
-	private void updateAttribs() {
+	protected void updateAttribs() {
 		if (needUpdate) {
 			/*	No longer hack and use normals to pass through data!
 			//update vertex attributes
@@ -51,8 +56,6 @@ public class ParticleSystem extends Mesh {
 			}
 			mPolygonData.rewind();
 			needUpdate = false;
-			
-			numParticles = P.size();
 		}
 	}
 
@@ -70,12 +73,16 @@ public class ParticleSystem extends Mesh {
 	}
 	
 	public void addParticle(Particle p) {
-		needUpdate = true;
-		P.add(p);
+		try {
+			queue.put(p);
+			needUpdate = true;
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
-	public Iterable<Particle> particleIterator() {
-		updateAttribs();
+	protected Iterable<Particle> particleIterator() {
 		return P;
 	}
 	
@@ -84,21 +91,17 @@ public class ParticleSystem extends Mesh {
 		P.removeAll(toRemove);
 	}
 	public int size() {
-		updateAttribs();
 		return numParticles;
 	}
 
 	
 	public FloatBuffer getVertexData() {
-		updateAttribs();
 		return mVertexData;
 	}
 	public IntBuffer getPolygonData() {
-		updateAttribs();
 		return mPolygonData;
 	}
 	public FloatBuffer getNormalData() {
-		updateAttribs();
 		return mNormalData;
 	}
 
@@ -123,5 +126,11 @@ public class ParticleSystem extends Mesh {
 	
 	public boolean isOpaque() {
 		return mIsOpaque;
+	}
+	
+	public void dumpParticles() {
+		queue.drainTo(P);
+		
+		numParticles = P.size();
 	}
 }

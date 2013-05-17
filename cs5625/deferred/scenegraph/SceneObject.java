@@ -581,5 +581,10 @@ public class SceneObject implements OpenGLResourceObject, Observerable
 	public void addObserver(Observer o) {
 		observers.add(o);
 	}
+	
+	/**
+	 * Update whatever needs to be updated
+	 */
+	public void prepareRender() { }
 
 }

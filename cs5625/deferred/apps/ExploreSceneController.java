@@ -125,14 +125,16 @@ public class ExploreSceneController extends SceneController
 			light.setColor(new Color3f(1f, 1f, 1f));
 
 			light.setConstantAttenuation(1.0f);
-			light.setLinearAttenuation(0.01f);
-			light.setQuadraticAttenuation(0.002f);
+			light.setLinearAttenuation(0.0f);
+			light.setQuadraticAttenuation(0.00f);
 
-			Point3f lightPosition = new Point3f(0f, -2f, 0f);
+			Point3f lightPosition = new Point3f(0f, 0f, 0f);
 			lightPosition.add(mCamera.getPosition());
 			light.setPosition(lightPosition);
 			//mSceneRoot.addChild(light);
 			flashlight = new FlashLight(light, mCamera);
+			flashlight.setFlashlightRadius(1.0f);
+			flashlight.setFlashlightCoefficient(0.0f);
 			flashlight.setFOV(75);
 			mRenderer.addShadowCamera(flashlight);
 			
